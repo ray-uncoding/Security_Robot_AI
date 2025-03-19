@@ -3,9 +3,11 @@ import datetime
 import json
 import threading
 import time
+import cv2
 import tkinter as tk
 from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
+from PIL import Image, ImageTk
 
 COMMAND_URL = "http://192.168.1.188:20000/osc/commands/execute"
 STATE_URL = "http://192.168.1.188:20000/osc/state"
@@ -135,50 +137,79 @@ def disconnect_camera():
     root.after(0, lambda: connect_button.config(state=tk.NORMAL))
 
 def start_live_stream():
-    global fingerprint
-    try:
-        payload = {
-            "name": "camera._startLive",
-            "parameters": {
-                "origin": {
-                    "mime": "rtsp",
-                    "width": 1920,
-                    "height": 1080,
-                    "framerate": 30.0,
-                    "bitrate": 5000000,
-                    "logMode": 0,
-                    "saveOrigin": False
-                },
-                "stitching": {
-                    "mode": "pano",
-                    "mime": "rtsp",
-                    "width": 1920,
-                    "height": 1080,
-                    "framerate": 30.0,
-                    "bitrate": 5000000,
-                    "saveStitched": False
-                }
+    global live_url
+    payload = {
+        "name": "camera._startLive",
+        "parameters": {
+            "origin": {
+                "mime": "video/mp4",
+                "width": 1920,
+                "height": 1080,
+                "framerate": 30.0,
+                "bitrate": 5000000,
+                "logMode": 0,
+                #"liveUrl": "rtmp://192.168.1.188/live",  
+                "saveOrigin": False
+            },
+            "audio": {
+                "mime": "audio/aac",
+                "sampleFormat": "s16",
+                "channelLayout": "stereo",
+                "samplerate": 48000,
+                "bitrate": 128000
             }
-        }
-        headers = {
-            "Content-Type": "application/json",
-            "Fingerprint": fingerprint  # 必須加入 Fingerprint
-        }
-
-        response = requests.post(API_URL, json=payload, headers=headers, timeout=10)
-        response_data = response.json()
-
-        if response_data.get("state") == "done":
-            status_label.config(text="✅ 直播已啟動！", fg="green")
-            messagebox.showinfo("成功", "直播已成功啟動！")
-            display_rtsp_stream()  # 開啟 RTSP 串流顯示
+        },
+        "autoConnect": {
+            "enable": True,
+            "interval": 3000,  
+            "count": -1  
+        },
+        "stabilization": False  
+    }
+    
+    # **手動計算 Content-Length**
+    json_payload = json.dumps(payload)  # 轉換成 JSON 字串
+    headers = {
+        "Content-Type": "application/json",
+        "Content-Length": str(len(json_payload)),  # **加入 Content-Length**
+        "User-Agent": fingerprint
+    }
+    
+    response = requests.post(COMMAND_URL, json=payload, headers=headers, timeout=10)
+    response_data = response.json()
+    
+    if response_data.get("state") == "done":
+        live_url = response_data["results"].get("_liveUrl", "")
+        if live_url:
+            print(f"🎥 直播開始，串流網址: {live_url}")
+            display_rtsp_stream(live_url)
         else:
-            status_label.config(text="⚠️ 啟動直播失敗", fg="red")
-            messagebox.showwarning("錯誤", "啟動直播失敗，請檢查 API 回應")
+            messagebox.showerror("錯誤", "未獲取到直播串流網址")
+    else:
+        messagebox.showerror("錯誤", "啟動直播失敗")
+        root.after(0, lambda: update_response_text(response_data))
 
-    except requests.exceptions.RequestException as e:
-        status_label.config(text="❌ 啟動直播時發生錯誤", fg="red")
-        messagebox.showerror("錯誤", f"啟動直播時發生錯誤: {e}")
+def display_rtsp_stream(rtsp_url):
+    cap = cv2.VideoCapture(rtsp_url)
+    
+    if not cap.isOpened():
+        messagebox.showerror("錯誤", "無法開啟 RTSP 串流")
+        return
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("❌ 串流中斷")
+            break
+
+        cv2.imshow("Insta360 直播", frame)
+
+        # 按下 'q' 退出直播視窗
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 
 # 創建按鈕（置中）
@@ -188,6 +219,9 @@ connect_button.pack(pady=15)
 disconnect_button = tk.Button(root, text="斷開連線", font=("Arial", 14), command=disconnect_camera)
 disconnect_button.pack(pady=15)
 disconnect_button.config(state=tk.DISABLED)  # 預設為不可點擊
+
+live_button = tk.Button(root, text="開啟直播", font=("Arial", 14), command=start_live_stream)
+live_button.pack(pady=15)
 
 # 啟動 UI
 root.mainloop()
