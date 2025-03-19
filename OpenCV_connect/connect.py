@@ -134,6 +134,53 @@ def disconnect_camera():
     root.after(0, lambda: disconnect_button.config(state=tk.DISABLED))
     root.after(0, lambda: connect_button.config(state=tk.NORMAL))
 
+def start_live_stream():
+    global fingerprint
+    try:
+        payload = {
+            "name": "camera._startLive",
+            "parameters": {
+                "origin": {
+                    "mime": "rtsp",
+                    "width": 1920,
+                    "height": 1080,
+                    "framerate": 30.0,
+                    "bitrate": 5000000,
+                    "logMode": 0,
+                    "saveOrigin": False
+                },
+                "stitching": {
+                    "mode": "pano",
+                    "mime": "rtsp",
+                    "width": 1920,
+                    "height": 1080,
+                    "framerate": 30.0,
+                    "bitrate": 5000000,
+                    "saveStitched": False
+                }
+            }
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "Fingerprint": fingerprint  # 必須加入 Fingerprint
+        }
+
+        response = requests.post(API_URL, json=payload, headers=headers, timeout=10)
+        response_data = response.json()
+
+        if response_data.get("state") == "done":
+            status_label.config(text="✅ 直播已啟動！", fg="green")
+            messagebox.showinfo("成功", "直播已成功啟動！")
+            display_rtsp_stream()  # 開啟 RTSP 串流顯示
+        else:
+            status_label.config(text="⚠️ 啟動直播失敗", fg="red")
+            messagebox.showwarning("錯誤", "啟動直播失敗，請檢查 API 回應")
+
+    except requests.exceptions.RequestException as e:
+        status_label.config(text="❌ 啟動直播時發生錯誤", fg="red")
+        messagebox.showerror("錯誤", f"啟動直播時發生錯誤: {e}")
+
+
 # 創建按鈕（置中）
 connect_button = tk.Button(root, text="連接相機", font=("Arial", 14), command=connect_camera)
 connect_button.pack(pady=15)
