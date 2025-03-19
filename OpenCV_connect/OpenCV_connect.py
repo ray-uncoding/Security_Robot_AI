@@ -1,26 +1,17 @@
-import numpy
-import serial
-from time import sleep
-import sys
+import cv2
+import numpy as np
 
-COM_PORT = 'COM4'
+#capture = cv2.VideoCapture('rtsp://username:password@192.168.1.64/1')
 
-BAUD_RATES = 9600
+#capture = cv2.VideoCapture('rtsp://username:password@192.168.1.64/1')
+cap = cv2.VideoCapture(1)
 
-print("Start!")
-ser = serial.Serial(COM_PORT, BAUD_RATES, timeout = 0.5)
-sx = 'ON'
-
-try:
-    while True:
-        ser.write(sx.encode('ascii'))
-        sleep(4)
-        while ser.in_waiting:
-            mcu_feedback = ser.readline().decode()
-            print('response: ', mcu_feedback)
-except KeyboardInterrupt:
-    ser.close()
-    print('colse')
-print("end")
-
+while(True):
+    ret, frame = cap.read()
+    cv2.imshow('frame',frame)
     
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()

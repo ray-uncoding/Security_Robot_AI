@@ -1,25 +1,37 @@
 import requests
 import cv2
+import numpy as np
 
-# Insta360 API 端點（用來啟動直播）
 API_URL = "http://192.168.1.188:20000/osc/commands/execute"
-
-# Insta360 內建 RTSP 串流地址（請確認相機的 RTSP 端口）
 RTSP_URL = "rtsp://192.168.1.188:8554/live"
 
-# 發送 API 請求來啟動直播
 payload = {
     "name": "camera._startLive",
     "parameters": {
-        "origin": {
-            "mime": "video/mp4",
-            "width": 3840,
-            "height": 1920,
-            "framerate": 30.0,
-            "bitrate": 8000,
-            "logMode": 0,
-            "saveOrigin": False
+        "stiching":{ 
+            "mode": "",
+            "mime": "",
+            "width": 123,
+            "height": 123,
+            "framerate": 123,
+            "bitrate": 123, 
+            "map": "", 
+            "_liveUrl": RTSP_URL,
+            "liveOnHdmi": 0, 
+            "fileSave": 0
         }
+    },
+    "audio":{
+      "mime": "",
+      "sampleFormat": "",
+      "channelLayout": "",
+      "samplerate": 123,
+      "bitrate": 123
+    },
+    "autoConnect":{
+        "enable": 1, 
+        "interval": 123,
+        "count": 123 
     }
 }
 
@@ -32,8 +44,7 @@ try:
 
     if response_data.get("state") == "done":
         print("直播已啟動，正在連接 RTSP 串流...")
-
-        # 連接 Insta360 RTSP 串流
+        
         cap = cv2.VideoCapture(RTSP_URL)
         if not cap.isOpened():
             print("無法打開 RTSP 串流，請檢查相機是否允許 RTSP")
