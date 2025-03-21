@@ -8,6 +8,8 @@ import tkinter as tk
 from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
 from PIL import Image, ImageTk
+import subprocess
+import os
 
 COMMAND_URL = "http://192.168.1.188:20000/osc/commands/execute"
 STATE_URL = "http://192.168.1.188:20000/osc/state"
@@ -17,22 +19,40 @@ PREVIEW_URL = "rtmp://192.168.1.188:1935/live/preview"
 # UI 設定
 root = tk.Tk()
 root.title("Insta360 相機管理")
-root.geometry("700x500")  # 設定較大的視窗尺寸
-root.minsize(600, 400)  # 設定最小尺寸
-status_label = tk.Label(root, text="請按下按鈕連接相機", font=("Arial", 16)) # 訊息顯示區域
-status_label.pack(pady=10)
-response_text = ScrolledText(root, height=10, width=80, wrap=tk.WORD, font=("Arial", 12))# JSON 回應框（可滾動）
-response_text.pack(pady=10, padx=20, expand=True, fill="both")  # 自適應大小
+root.geometry("800x600")  # 設定較大的視窗尺寸
+root.minsize(700, 500)  # 設定最小尺寸
 
-# 系統狀態紀錄
-async_task_list = [] # 記錄非同步任務的 sequence
-polling_thread_active = False  # 紀錄非同步任務結束與否, 以決定要不要執行輪詢狀態, 預設為 False，避免程式報錯
-fingerprint = ""  # 紀錄設備認證
-stop_event = threading.Event()  # 建立執行緒停止事件
+# **相機狀態 UI**
+status_label = tk.Label(root, text="請按下按鈕連接相機", font=("Arial", 16))
+status_label.pack(pady=10)
+
+response_text = ScrolledText(root, height=10, width=80, wrap=tk.WORD, font=("Arial", 12))
+response_text.pack(pady=10, padx=20, expand=True, fill="both")
+
+# **新增 直播訊息 UI**
+live_status_label = tk.Label(root, text="直播狀態", font=("Arial", 14))
+live_status_label.pack(pady=10)
+
+live_response_text = ScrolledText(root, height=6, width=80, wrap=tk.WORD, font=("Arial", 12))
+live_response_text.pack(pady=10, padx=20, expand=True, fill="both")
+
+# **系統狀態紀錄**
+async_task_list = []
+polling_thread_active = False  
+fingerprint = ""  
+stop_event = threading.Event()  
+
+# RTMP 伺服器路徑 (你的 `rtmp.py` 位於 `python-rtmp-server` 資料夾)
+RTMP_SERVER_PATH = os.path.join(os.path.dirname(__file__), "../python-rtmp-server/rtmp.py")
 
 def update_response_text(text): # 更新UI上的回訊
     response_text.delete("1.0", tk.END)
     response_text.insert(tk.END, json.dumps(text, indent=4, ensure_ascii=False) if isinstance(text, dict) else text)
+
+# **更新直播狀態 UI**
+def update_live_response_text(text):
+    live_response_text.delete("1.0", tk.END)
+    live_response_text.insert(tk.END, json.dumps(text, indent=4, ensure_ascii=False) if isinstance(text, dict) else text)
 
 def poll_camera_state(): # 刷新狀態，保持連線
     global polling_thread_active
@@ -135,9 +155,14 @@ def disconnect_camera():
     root.after(0, lambda: status_label.config(text="❌ 相機已斷線", fg="red"))
     root.after(0, lambda: disconnect_button.config(state=tk.DISABLED))
     root.after(0, lambda: connect_button.config(state=tk.NORMAL))
-
+    
 def start_live_stream():
     global live_url
+
+    # **先啟動 RTMP 伺服器**
+    #start_rtmp_server()
+    #time.sleep(3)  # **等待 RTMP 伺服器啟動**
+
     payload = {
         "name": "camera._startLive",
         "parameters": {
@@ -148,7 +173,7 @@ def start_live_stream():
                 "framerate": 30.0,
                 "bitrate": 5000000,
                 "logMode": 0,
-                #"liveUrl": "rtmp://192.168.1.188/live",  
+                "liveUrl": "rtmp://0.0.0.0/live",  # ✅ **確保這裡是 RTMP 伺服器的 IP**
                 "saveOrigin": False
             },
             "audio": {
@@ -161,34 +186,40 @@ def start_live_stream():
         },
         "autoConnect": {
             "enable": True,
-            "interval": 3000,  
-            "count": -1  
-        },
-        "stabilization": False  
+            "interval": 3000,
+            "count": -1
+        }
     }
-    
-    # **手動計算 Content-Length**
-    json_payload = json.dumps(payload)  # 轉換成 JSON 字串
+
+    json_payload = json.dumps(payload)
     headers = {
         "Content-Type": "application/json",
-        "Content-Length": str(len(json_payload)),  # **加入 Content-Length**
-        "User-Agent": fingerprint
+        "Fingerprint": fingerprint
     }
-    
-    response = requests.post(COMMAND_URL, json=payload, headers=headers, timeout=10)
-    response_data = response.json()
-    
-    if response_data.get("state") == "done":
-        live_url = response_data["results"].get("_liveUrl", "")
-        if live_url:
-            print(f"🎥 直播開始，串流網址: {live_url}")
-            display_rtsp_stream(live_url)
-        else:
-            messagebox.showerror("錯誤", "未獲取到直播串流網址")
-    else:
-        messagebox.showerror("錯誤", "啟動直播失敗")
-        root.after(0, lambda: update_response_text(response_data))
 
+    response = requests.post(COMMAND_URL, json=payload, headers=headers, timeout=10)
+    
+    try:
+        response_data = response.json()
+        update_live_response_text(response_data)  # ✅ 顯示 API 回應在 UI
+
+        if response_data.get("state") == "done":
+            live_url = response_data["results"].get("_liveUrl", "")
+            if live_url:
+                messagebox.showinfo("成功", f"直播已啟動，串流網址: {live_url}")
+                display_rtsp_stream(live_url)  # ✅ 顯示直播畫面
+            else:
+                messagebox.showerror("錯誤", "未獲取到直播串流網址")
+        else:
+            messagebox.showerror("錯誤", "啟動直播失敗")
+
+    except json.JSONDecodeError:
+        messagebox.showerror("錯誤", "無法解析 API 回應")
+        update_live_response_text(response.text)
+
+
+
+# **顯示 RTSP 串流**
 def display_rtsp_stream(rtsp_url):
     cap = cv2.VideoCapture(rtsp_url)
     
@@ -204,12 +235,23 @@ def display_rtsp_stream(rtsp_url):
 
         cv2.imshow("Insta360 直播", frame)
 
-        # 按下 'q' 退出直播視窗
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
     cap.release()
     cv2.destroyAllWindows()
+    
+    
+def start_rtmp_server():
+    """
+    啟動 RTMP 伺服器
+    """
+    try:
+        print("🚀 啟動 RTMP 伺服器...")
+        subprocess.Popen(["python", RTMP_SERVER_PATH], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print("✅ RTMP 伺服器已啟動")
+    except Exception as e:
+        print(f"❌ 無法啟動 RTMP 伺服器: {e}")
 
 
 # 創建按鈕（置中）
