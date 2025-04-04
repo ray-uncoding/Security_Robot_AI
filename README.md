@@ -1,2 +1,2 @@
-# Insta360pro2_OpenCV
- 這是使用OpenCV和Insta360的結合應用專案
+# Security_Robot_AI
+ 這是保全機器人的人機介面系統，以及智能系統
