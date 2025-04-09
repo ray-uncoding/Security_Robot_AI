@@ -39,7 +39,7 @@ fingerprint = ""
 stop_event = threading.Event()  
 
 # RTMP 伺服器路徑 (你的 `rtmp.py` 位於 `python-rtmp-server` 資料夾)
-#
+
 RTMP_SERVER_PATH = os.path.join(os.path.dirname(__file__), "rtmp_server.py")
 
 def update_response_text(text): # 更新UI上的回訊
@@ -184,7 +184,6 @@ def start_live_stream():
 
     response = requests.post(COMMAND_URL, json=payload_startPreview, headers=headers, timeout=10)
     
-    #try:
     response_data = response.json()
     update_live_response_text(response_data)
     
