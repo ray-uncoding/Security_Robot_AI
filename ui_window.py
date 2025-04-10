@@ -50,9 +50,26 @@ class ControlPanel(QWidget):
         self.start_btn.clicked.connect(self.start_threads)
         self.stop_btn.clicked.connect(self.stop_threads)
 
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_log_boxes)
-        self.timer.start(500)
+        # 相機訊息定時器
+        self.timer_camera = QTimer()
+        self.timer_camera.timeout.connect(self.update_log_camera)
+        self.timer_camera.start(200)  # 每 0.2 秒刷新一次
+
+        # 串流訊息定時器
+        self.timer_stream = QTimer()
+        self.timer_stream.timeout.connect(self.update_log_stream)
+        self.timer_stream.start(150)
+
+        # ReID 訊息定時器
+        self.timer_reid = QTimer()
+        self.timer_reid.timeout.connect(self.update_log_reid)
+        self.timer_reid.start(300)
+
+        # 系統訊息定時器
+        self.timer_system = QTimer()
+        self.timer_system.timeout.connect(self.update_log_system)
+        self.timer_system.start(500)
+
 
     def create_log_box(self, title):
         group = QGroupBox(title)
@@ -97,13 +114,22 @@ class ControlPanel(QWidget):
         self.status_label.setStyleSheet("color: red; font-weight: bold;")
         log_queue_system.put("[Main] 停止所有模組中...")
 
-    def update_log_boxes(self):
-        for queue_obj, log_widget in [
-            (log_queue_camera, self.log_camera["widget"]),
-            (log_queue_stream, self.log_stream["widget"]),
-            (log_queue_reid, self.log_reid["widget"]),
-            (log_queue_system, self.log_system["widget"]),
-        ]:
-            while not queue_obj.empty():
-                msg = queue_obj.get()
-                log_widget.append(msg)
+    def update_log_camera(self):
+        while not log_queue_camera.empty():
+            msg = log_queue_camera.get()
+            self.log_camera["widget"].append(msg)
+
+    def update_log_stream(self):
+        while not log_queue_stream.empty():
+            msg = log_queue_stream.get()
+            self.log_stream["widget"].append(msg)
+
+    def update_log_reid(self):
+        while not log_queue_reid.empty():
+            msg = log_queue_reid.get()
+            self.log_reid["widget"].append(msg)
+
+    def update_log_system(self):
+        while not log_queue_system.empty():
+            msg = log_queue_system.get()
+            self.log_system["widget"].append(msg)
