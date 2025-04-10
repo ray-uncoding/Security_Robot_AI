@@ -3,8 +3,12 @@ import random
 import queue
 from shared_queue import (
     frame_queue, face_result_queue, id_result_queue,
-    log_queue_camera, log_queue_stream, log_queue_reid, stop_event
+    log_queue_camera, log_queue_stream, log_queue_reid, log_queue_system,
+    camera_frame_queue,
+    stop_event    
 )
+import cv2
+from shared_queue import camera_frame_queue
 
 def rtmp_worker():
     i = 0
@@ -46,3 +50,24 @@ def reid_worker():
             )
         except queue.Empty:
             continue
+
+def camera_worker(cam_id=0):
+    cap = cv2.VideoCapture(cam_id)  # 預設為 USB 攝影機 0
+    
+    if not cap.isOpened():
+        log_queue_system.put("[CameraWorker] 無法啟動攝影機，請確認裝置是否連接")
+        return
+    
+    log_queue_system.put(f"[CameraWorker] 攝影機啟動成功（ID: {cam_id}）")
+    
+    while not stop_event.is_set() and cap.isOpened():
+        ret, frame = cap.read()
+        if ret:
+            if not camera_frame_queue.full():
+                camera_frame_queue.put(frame)
+        else:
+            break
+        time.sleep(0.03)  # 每秒約 30 幀
+    
+    cap.release()
+    log_queue_system.put("[CameraWorker] 攝影機已關閉")

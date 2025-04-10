@@ -14,3 +14,6 @@ log_queue_system = queue.Queue()
 
 # 控制旗標
 stop_event = threading.Event()
+
+# 相機畫面 frame queue
+camera_frame_queue = queue.Queue()

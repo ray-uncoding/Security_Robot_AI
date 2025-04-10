@@ -5,10 +5,13 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import QTimer
 from shared_queue import (
     log_queue_camera, log_queue_stream, log_queue_reid, log_queue_system,
+    camera_frame_queue,
     stop_event
 )
 import threading
 from core import start_all_threads
+from PyQt5.QtGui import QImage, QPixmap
+import cv2
 
 class ControlPanel(QWidget):
     def __init__(self):
@@ -36,10 +39,11 @@ class ControlPanel(QWidget):
         log_layout_top = QHBoxLayout()
         log_layout_top.addWidget(self.log_camera["group"])
         log_layout_top.addWidget(self.log_stream["group"])
+        log_layout_top.addWidget(self.camera_view)
 
         log_layout_bottom = QHBoxLayout()
         log_layout_bottom.addWidget(self.log_reid["group"])
-        log_layout_bottom.addWidget(self.log_system["group"])
+        log_layout_bottom.addWidget(self.log_system["group"])   
 
         main_layout = QVBoxLayout()
         main_layout.addLayout(btn_layout)
@@ -49,6 +53,10 @@ class ControlPanel(QWidget):
 
         self.start_btn.clicked.connect(self.start_threads)
         self.stop_btn.clicked.connect(self.stop_threads)
+        
+        self.camera_view = QLabel("尚未啟動攝影機")
+        self.camera_view.setFixedSize(320, 240)
+        self.camera_view.setStyleSheet("background-color: black; color: white; font-size: 12px;")
 
         # 相機訊息定時器
         self.timer_camera = QTimer()
@@ -69,6 +77,12 @@ class ControlPanel(QWidget):
         self.timer_system = QTimer()
         self.timer_system.timeout.connect(self.update_log_system)
         self.timer_system.start(500)
+  
+        # 相機畫面定時器
+        self.timer_camera_view = QTimer()
+        self.timer_camera_view.timeout.connect(self.update_camera_view)
+        self.timer_camera_view.start(33)  # 約 30 fps
+
 
 
     def create_log_box(self, title):
@@ -133,3 +147,17 @@ class ControlPanel(QWidget):
         while not log_queue_system.empty():
             msg = log_queue_system.get()
             self.log_system["widget"].append(msg)
+            
+    
+    def update_camera_view(self):
+        if not camera_frame_queue.empty():
+            frame = camera_frame_queue.get()
+            rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            h, w, ch = rgb_image.shape
+            qimg = QImage(rgb_image.data, w, h, ch * w, QImage.Format_RGB888)
+            pixmap = QPixmap.fromImage(qimg).scaled(
+                self.camera_view.size(), aspectRatioMode=1)  # 1 表示保持比例
+            self.camera_view.setPixmap(pixmap)
+        else:
+            # 顯示「無訊號」畫面文字（可選）
+            self.camera_view.setText("🚫 無畫面")
