@@ -53,6 +53,8 @@ def reid_worker():
 
 def camera_worker(cam_id=0):
     cap = cv2.VideoCapture(cam_id)  # 預設為 USB 攝影機 0
+    #rtmp_url = "rtmp://live.hkstv.hk.lxdns.com/live/hks"  # 香港直播頻道
+    #cap = cv2.VideoCapture(rtmp_url)  # 預設為 USB 攝影機 0
     
     if not cap.isOpened():
         log_queue_system.put("[CameraWorker] 無法啟動攝影機，請確認裝置是否連接")

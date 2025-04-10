@@ -24,6 +24,10 @@ class ControlPanel(QWidget):
         self.stop_btn = QPushButton("停止系統")
         self.status_label = QLabel("系統狀態：未啟動")
         self.status_label.setStyleSheet("font-weight: bold; color: #555")
+        
+        self.camera_view = QLabel("尚未啟動攝影機")
+        self.camera_view.setFixedSize(320, 240)
+        self.camera_view.setStyleSheet("background-color: black; color: white; font-size: 12px;")
 
         btn_layout = QHBoxLayout()
         btn_layout.addWidget(self.start_btn)
@@ -54,10 +58,6 @@ class ControlPanel(QWidget):
         self.start_btn.clicked.connect(self.start_threads)
         self.stop_btn.clicked.connect(self.stop_threads)
         
-        self.camera_view = QLabel("尚未啟動攝影機")
-        self.camera_view.setFixedSize(320, 240)
-        self.camera_view.setStyleSheet("background-color: black; color: white; font-size: 12px;")
-
         # 相機訊息定時器
         self.timer_camera = QTimer()
         self.timer_camera.timeout.connect(self.update_log_camera)
@@ -150,14 +150,24 @@ class ControlPanel(QWidget):
             
     
     def update_camera_view(self):
-        if not camera_frame_queue.empty():
-            frame = camera_frame_queue.get()
-            rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        if not hasattr(self, "last_frame"):
+            self.last_frame = None  # 初始化紀錄上次畫面
+
+        latest_frame = None
+        while not camera_frame_queue.empty():
+            latest_frame = camera_frame_queue.get()
+
+        # 若有新畫面，更新畫面與紀錄
+        if latest_frame is not None:
+            self.last_frame = latest_frame
+
+        # 無論有無新畫面，都顯示 last_frame（除非一開始就沒有）
+        if self.last_frame is not None:
+            rgb_image = cv2.cvtColor(self.last_frame, cv2.COLOR_BGR2RGB)
             h, w, ch = rgb_image.shape
             qimg = QImage(rgb_image.data, w, h, ch * w, QImage.Format_RGB888)
             pixmap = QPixmap.fromImage(qimg).scaled(
-                self.camera_view.size(), aspectRatioMode=1)  # 1 表示保持比例
+                self.camera_view.size(), aspectRatioMode=1)
             self.camera_view.setPixmap(pixmap)
         else:
-            # 顯示「無訊號」畫面文字（可選）
             self.camera_view.setText("🚫 無畫面")
