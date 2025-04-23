@@ -1,14 +1,15 @@
-import time
-import random
 import queue
-from shared_queue import (
-    frame_queue, face_result_queue, id_result_queue,
-    log_queue_camera, log_queue_stream, log_queue_reid, log_queue_system,
-    camera_frame_queue,
-    stop_event    
-)
+import random
+import time
+
 import cv2
-from shared_queue import camera_frame_queue
+
+from gemini_client import GeminiClient  # Import the new client
+from shared_queue import (  # Added gemini log queue; Added gemini queues
+    camera_frame_queue, face_result_queue, frame_queue, gemini_prompt_queue,
+    gemini_response_queue, id_result_queue, log_queue_camera, log_queue_gemini,
+    log_queue_reid, log_queue_stream, log_queue_system, stop_event)
+
 
 def rtmp_worker():
     i = 0
@@ -73,3 +74,47 @@ def camera_worker(cam_id=0):
     
     cap.release()
     log_queue_system.put("[CameraWorker] 攝影機已關閉")
+
+# --- New Gemini Worker ---
+def gemini_worker():
+    """Handles Gemini API requests from the UI."""
+    log_queue_gemini.put("[GeminiWorker] Initializing...")
+    client = GeminiClient()
+    current_model = None
+
+    while not stop_event.is_set():
+        try:
+            # Get prompt and desired model from the queue
+            prompt_data = gemini_prompt_queue.get(timeout=1)
+            prompt_text = prompt_data.get("prompt")
+            model_name = prompt_data.get("model")
+
+            if not prompt_text or not model_name:
+                log_queue_gemini.put("[GeminiWorker] Invalid prompt data received.")
+                continue
+
+            # Update model if changed
+            if model_name != current_model:
+                if client.set_model(model_name):
+                    current_model = model_name
+                else:
+                    # Failed to set model, put error back?
+                    gemini_response_queue.put(f"Error: Failed to set Gemini model to {model_name}")
+                    continue # Skip generation if model setup failed
+
+            # Generate response
+            if client.model: # Check if model was successfully initialized
+                 response = client.generate_response(prompt_text)
+                 gemini_response_queue.put(response)
+            else:
+                 gemini_response_queue.put("Error: Gemini model not available.")
+
+
+        except queue.Empty:
+            # No prompt received, continue loop
+            continue
+        except Exception as e:
+            log_queue_gemini.put(f"[GeminiWorker] Error processing prompt: {e}")
+            gemini_response_queue.put(f"Error: An internal error occurred in Gemini worker. {e}")
+
+    log_queue_gemini.put("[GeminiWorker] Shutting down.")
