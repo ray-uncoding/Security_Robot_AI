@@ -13,6 +13,9 @@ log_queue_reid = queue.Queue()
 log_queue_system = queue.Queue()
 log_queue_gemini = queue.Queue() # New log queue for Gemini
 
+# 紀錄id
+id_result_queue = queue.Queue()
+
 # 控制旗標
 stop_event = threading.Event()
 

@@ -8,14 +8,13 @@ from PyQt5.QtWidgets import (  # Added QComboBox; Added QSplitter for better lay
     QSizePolicy, QSplitter, QTextEdit, QVBoxLayout, QWidget)
 
 # from core import start_all_threads # Keep this if start_threads uses it directly
-from core import start_all_threads  # Import stop function too
-from core import stop_all_threads
-from gemini_client import GeminiClient  # Import client for listing models
-from shared_queue import (  # Added gemini log queue; Added gemini queues
+from core.core import start_all_threads, stop_all_threads
+from ai.gemini_client import GeminiClient
+from core.shared_queue import (
     camera_frame_queue, gemini_prompt_queue, gemini_response_queue,
     log_queue_camera, log_queue_gemini, log_queue_reid, log_queue_stream,
-    log_queue_system, stop_event)
-
+    log_queue_system, id_result_queue, stop_event
+)
 
 class ControlPanel(QWidget):
     def __init__(self):
@@ -266,6 +265,7 @@ class ControlPanel(QWidget):
 
     # --- Camera View Update ---
     def update_camera_view(self):
+        """更新攝影機畫面與檢測結果"""
         if not hasattr(self, "last_frame"):
             self.last_frame = None  # 初始化紀錄上次畫面
 
@@ -280,22 +280,46 @@ class ControlPanel(QWidget):
         # 無論有無新畫面，都顯示 last_frame（除非一開始就沒有）
         if self.last_frame is not None:
             try:
+                # 從 id_result_queue 獲取檢測結果
+                while not id_result_queue.empty():
+                    result = id_result_queue.get()
+                    box = result["box"]
+                    person_id = result["person_id"]
+                    confidence = result["confidence"]
+
+                    # 繪製檢測框與 ID 標籤
+                    x1, y1, x2, y2 = map(int, box)
+                    cv2.rectangle(self.last_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(
+                        self.last_frame,
+                        f"{person_id} ({confidence:.2f})",
+                        (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 0),
+                        1,
+                        cv2.LINE_AA,
+                    )
+
+                # 將 OpenCV 的影像轉換為 QImage
                 rgb_image = cv2.cvtColor(self.last_frame, cv2.COLOR_BGR2RGB)
                 h, w, ch = rgb_image.shape
                 bytes_per_line = ch * w
                 qimg = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-                # Scale pixmap keeping aspect ratio, fitting within the label's size
                 pixmap = QPixmap.fromImage(qimg).scaled(
-                    self.camera_view.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation) # Use KeepAspectRatio
+                    self.camera_view.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+                )
                 self.camera_view.setPixmap(pixmap)
-                self.camera_view.setAlignment(Qt.AlignCenter) # Center the pixmap
+                self.camera_view.setAlignment(Qt.AlignCenter)
             except Exception as e:
                 log_queue_system.put(f"[UI] Error updating camera view: {e}")
                 self.camera_view.setText("🚫 畫面錯誤")
-        elif not self.stop_btn.isEnabled(): # Only show "No Frame" if system is stopped
-             self.camera_view.setText("🚫 無畫面")
-             self.camera_view.setStyleSheet("background-color: black; color: white; font-size: 14px; border: 1px solid #555;")
-             self.camera_view.setAlignment(Qt.AlignCenter)
+        elif not self.stop_btn.isEnabled():  # Only show "No Frame" if system is stopped
+            self.camera_view.setText("🚫 無畫面")
+            self.camera_view.setStyleSheet(
+                "background-color: black; color: white; font-size: 14px; border: 1px solid #555;"
+            )
+            self.camera_view.setAlignment(Qt.AlignCenter)
 
 
     # Override closeEvent to ensure threads are stopped

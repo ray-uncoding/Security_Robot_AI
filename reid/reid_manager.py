@@ -1,6 +1,6 @@
-from detector import PersonDetector
-from reid_model import ReIDExtractor
-from dynamic_db import DynamicFeatureDB
+from reid.detector import PersonDetector
+from reid.reid_model import ReIDExtractor
+from reid.dynamic_db import DynamicFeatureDB
 
 class ReIDManager:
     def __init__(self):

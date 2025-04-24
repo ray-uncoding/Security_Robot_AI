@@ -11,7 +11,7 @@ class ReIDExtractor:
         self.device = device
 
         self.model = models.build_model(name=model_name, num_classes=1000)
-        state_dict = torch.load("ReID_MVP/osnet_x0_25_imagenet.pth", map_location=device)
+        state_dict = torch.load("config/osnet_x0_25_imagenet.pth", map_location=device)
         self.model.load_state_dict(state_dict)
         self.model.to(device)
         self.model.eval()

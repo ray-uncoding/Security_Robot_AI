@@ -2,7 +2,7 @@ import os
 
 import google.generativeai as genai
 
-from shared_queue import log_queue_gemini
+from core.shared_queue import log_queue_gemini
 
 # --- Configuration ---
 # IMPORTANT: Set your API key as an environment variable

@@ -3,7 +3,7 @@ import cv2
 import torch
 
 class PersonDetector:
-    def __init__(self, model_path='yolov8n.pt', device=None):
+    def __init__(self, model_path='config/yolov8n.pt', device=None):
         if device is None:
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model = YOLO(model_path)

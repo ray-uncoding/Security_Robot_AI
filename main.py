@@ -1,6 +1,7 @@
-from core import start_all_threads
-from ui import launch_ui, update_camera_info, update_reid_results
-from reid_manager import ReIDManager
+from core.core import start_all_threads, stop_all_threads
+from reid.reid_manager import ReIDManager
+from PyQt5.QtWidgets import QApplication
+from ui.ui_window import ControlPanel
 
 def main():
     # 初始化模組
@@ -10,7 +11,10 @@ def main():
     start_all_threads()
 
     # 啟動 UI
-    launch_ui()
+    app = QApplication([])
+    window = ControlPanel()
+    window.show()
+    app.exec_()
 
 if __name__ == "__main__":
     main()

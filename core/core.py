@@ -1,9 +1,10 @@
 import threading
 
-from shared_queue import stop_event
-from workers import (camera_worker,  # Added gemini_worker
+from core.shared_queue import stop_event
+from workers.workers import (camera_worker,  # Added gemini_worker
                      face_detector_worker, gemini_worker, reid_worker,
                      rtmp_worker)
+
 
 threads = []
 

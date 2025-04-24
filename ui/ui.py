@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QApplication
-from ui_window import ControlPanel
+from ui.ui_window import ControlPanel
 import sys
 
 def launch_ui():

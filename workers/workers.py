@@ -4,11 +4,12 @@ import time
 
 import cv2
 
-from gemini_client import GeminiClient  # Import the new client
-from shared_queue import (  # Added gemini log queue; Added gemini queues
+from ai.gemini_client import GeminiClient  # Import the new client
+from core.shared_queue import (  # Added gemini log queue; Added gemini queues
     camera_frame_queue, face_result_queue, frame_queue, gemini_prompt_queue,
     gemini_response_queue, id_result_queue, log_queue_camera, log_queue_gemini,
     log_queue_reid, log_queue_stream, log_queue_system, stop_event)
+from reid.reid_manager import ReIDManager
 
 
 def rtmp_worker():
@@ -21,36 +22,53 @@ def rtmp_worker():
         i += 1
 
 def face_detector_worker():
+    from reid.detector import PersonDetector
+    detector = PersonDetector()
+
     while not stop_event.is_set():
         try:
-            frame = frame_queue.get(timeout=1)
-            face_features = {
-                "frame": frame,
-                "face_id": f"face_{random.randint(100,999)}",
-                "embedding": [random.random() for _ in range(128)]
-            }
-            face_result_queue.put(face_features)
-            log_queue_camera.put(f"[FaceDetector] 偵測出 {face_features['face_id']} from {frame}")
+            frame = camera_frame_queue.get(timeout=1)
+            boxes, crops = detector.detect(frame)
+
+            # 將檢測框與裁剪圖像放入 face_result_queue
+            for crop, box in zip(crops, boxes):
+                face_result_queue.put({"frame": frame, "crop": crop, "box": box})
+
+            log_queue_camera.put(f"[FaceDetector] 檢測到 {len(boxes)} 個人物")
         except queue.Empty:
             continue
+        except Exception as e:
+            log_queue_camera.put(f"[FaceDetector] 發生錯誤：{e}")
 
 def reid_worker():
+    from reid.reid_manager import ReIDManager
+    reid_manager = ReIDManager()
+
     while not stop_event.is_set():
         try:
             face_data = face_result_queue.get(timeout=1)
-            person_id = f"Person_{random.randint(1, 5)}"
-            result = {
-                "frame": face_data["frame"],
-                "face_id": face_data["face_id"],
+            crop = face_data.get("crop")
+            frame = face_data.get("frame")
+            box = face_data.get("box")
+
+            # 使用 ReIDManager 處理特徵
+            feature = reid_manager.reid.extract(crop)
+            person_id, score, is_new = reid_manager.db.match_or_register(feature)
+
+            # 將結果放入 id_result_queue，供 UI 顯示
+            id_result_queue.put({
+                "frame": frame,
+                "box": box,
                 "person_id": person_id,
-                "confidence": round(random.uniform(0.85, 0.99), 2)
-            }
-            id_result_queue.put(result)
+                "confidence": score,
+            })
             log_queue_reid.put(
-                f"[ReID] {result['face_id']} ➔ {result['person_id']} (可信度: {result['confidence']})"
+                f"[ReID] {person_id} (可信度: {score:.2f}, 新身份: {is_new})"
             )
         except queue.Empty:
             continue
+        except Exception as e:
+            log_queue_reid.put(f"[ReID] 發生錯誤：{e}")
 
 def camera_worker(cam_id=0):
     cap = cv2.VideoCapture(cam_id)  # 預設為 USB 攝影機 0
