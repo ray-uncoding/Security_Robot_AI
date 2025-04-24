@@ -8,7 +8,7 @@ from shared_queue import log_queue_gemini
 # IMPORTANT: Set your API key as an environment variable
 # export GOOGLE_API_KEY="YOUR_API_KEY"
 # Or replace os.getenv("GOOGLE_API_KEY") with your key directly (less secure)
-API_KEY = os.getenv("GOOGLE_API_KEY")
+API_KEY = "AIzaSyAdf5Mg-42Ccd6lON8S3Rr2kK5okWHV53Q"  # 替換為你的實際金鑰
 if not API_KEY:
     log_queue_gemini.put("[GeminiClient] Error: GOOGLE_API_KEY environment variable not set.")
     # You might want to raise an exception or handle this more gracefully
