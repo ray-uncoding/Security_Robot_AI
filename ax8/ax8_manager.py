@@ -12,39 +12,7 @@ class AX8Manager:
         self.username = username
         self.password = password
         self.session = None
-        self.ws = None
         self.running = False
-
-    def start_websocket(self):
-        """
-        啟動 WebSocket 連線
-        """
-        ws_url = self.url.replace("http://", "ws://").replace("/snapshot.jpg", "/x")
-        self.ws = websocket.WebSocketApp(ws_url, on_message=self.on_message, on_error=self.on_error)
-        threading.Thread(target=self.ws.run_forever, daemon=True).start()
-        print("[AX8Manager] WebSocket 已啟動")
-
-    def on_message(self, message):
-        """
-        處理 WebSocket 消息
-        """
-        print(f"[AX8Manager] 收到 WebSocket 消息: {message}")
-
-    def on_error(self, error):
-        """
-        處理 WebSocket 錯誤
-        """
-        print(f"[AX8Manager] WebSocket 錯誤: {error}")
-
-    def send_heartbeat(self):
-        """
-        發送心跳消息
-        """
-        while self.running:
-            if self.ws:
-                self.ws.send("heartbeat")
-                print("[AX8Manager] 發送心跳消息")
-            time.sleep(10)  # 每 10 秒發送一次心跳
 
     def login(self):
         """
@@ -60,9 +28,6 @@ class AX8Manager:
             response = self.session.post(login_url, data=payload, timeout=5)
             if response.status_code == 200:
                 print("[AX8Manager] 登錄成功")
-                self.start_websocket()
-                self.running = True
-                threading.Thread(target=self.send_heartbeat, daemon=True).start()
                 return True
             else:
                 print(f"[AX8Manager] 登錄失敗，HTTP 狀態碼: {response.status_code}")
@@ -119,7 +84,7 @@ class AX8Manager:
 
         cv2.destroyAllWindows()
         print("[AX8Manager] 影像串流已停止")
-    
+
     def keep_alive(self):
         """
         定期向 /camera/state 發送請求，保持會話活躍
@@ -133,7 +98,7 @@ class AX8Manager:
                 print(f"[AX8Manager] 心跳請求失敗，HTTP 狀態碼: {response.status_code}")
         except Exception as e:
             print(f"[AX8Manager] 心跳請求時發生錯誤: {e}")
-    
+
     def stop(self):
         """
         停止影像串流
