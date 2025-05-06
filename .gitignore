@@ -1,0 +1,18 @@
+# 忽略 Python 編譯後的檔案
+__pycache__/
+*.py[cod]
+
+# 忽略虛擬環境
+venv/
+.env/
+
+# 忽略作業系統產生的檔案
+.DS_Store
+Thumbs.db
+
+# 忽略日誌檔案
+*.log
+
+# 忽略其他不必要的檔案
+*.swp
+*.swo
