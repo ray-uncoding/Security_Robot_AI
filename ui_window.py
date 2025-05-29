@@ -1,11 +1,12 @@
 import threading
+import queue
 
 import cv2
 from PyQt5.QtCore import Qt, QTimer  # Added Qt
 from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import (  # Added QComboBox; Added QSplitter for better layout management and QApplication
     QApplication, QComboBox, QGroupBox, QHBoxLayout, QLabel, QPushButton,
-    QSizePolicy, QSplitter, QTextEdit, QVBoxLayout, QWidget)
+    QSizePolicy, QSplitter, QTextEdit, QVBoxLayout, QWidget, QButtonGroup, QRadioButton)
 
 # from core import start_all_threads # Keep this if start_threads uses it directly
 from core import start_all_threads  # Import stop function too
@@ -20,9 +21,19 @@ from shared_queue import (  # Added gemini log queue; Added gemini queues
 class ControlPanel(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("保全機器人 人工智慧控制台 V2 (with Gemini)") # Updated title
+        self.setWindowTitle("保全機器人 人工智慧控制台 V2 (with Gemini Live)") # Updated title
         self.resize(1280, 800) # Increased size
         # Removed self.threads = [] as core.py manages threads
+
+        # --- Initialize GeminiClient for Live mode ---
+        self.gemini_client = GeminiClient()
+        
+        # Live mode state tracking
+        self.live_status = {
+            'active': False,
+            'video_mode': 'none',
+            'muted': False
+        }
 
         # --- Top Control Buttons ---
         self.start_btn = QPushButton("🚀 啟動系統")
@@ -88,7 +99,7 @@ class ControlPanel(QWidget):
         model_layout = QHBoxLayout()
         model_layout.addWidget(QLabel("選擇模型:"))
         self.gemini_model_combo = QComboBox()
-        self.gemini_model_combo.addItems(GeminiClient.list_available_models()) # Populate models
+        self.gemini_model_combo.addItems(self.gemini_client.list_available_models()) # Populate models
         model_layout.addWidget(self.gemini_model_combo)
         gemini_layout.addLayout(model_layout)
 
@@ -113,6 +124,97 @@ class ControlPanel(QWidget):
 
         gemini_group.setLayout(gemini_layout)
         right_layout.addWidget(gemini_group)
+
+        # --- Live Mode Control Group ---
+        live_group = QGroupBox("🎙️ Gemini Live 互動模式")
+        live_group.setStyleSheet("QGroupBox { font-weight: bold; margin-top: 10px; } QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 3px 10px; }")
+        live_layout = QVBoxLayout()
+
+        # Live Mode Status
+        self.live_status_label = QLabel("狀態：未啟動")
+        self.live_status_label.setStyleSheet("font-weight: bold; color: #666; padding: 5px; background-color: #f0f0f0; border-radius: 3px;")
+        live_layout.addWidget(self.live_status_label)
+
+        # Video Mode Selection
+        video_mode_layout = QHBoxLayout()
+        video_mode_layout.addWidget(QLabel("視訊模式:"))
+        
+        self.video_mode_group = QButtonGroup()
+        self.video_mode_none = QRadioButton("無視訊")
+        self.video_mode_camera = QRadioButton("攝影機")
+        self.video_mode_screen = QRadioButton("螢幕截圖")
+        
+        self.video_mode_none.setChecked(True)  # Default selection
+        
+        self.video_mode_group.addButton(self.video_mode_none, 0)
+        self.video_mode_group.addButton(self.video_mode_camera, 1)
+        self.video_mode_group.addButton(self.video_mode_screen, 2)
+        
+        video_mode_layout.addWidget(self.video_mode_none)
+        video_mode_layout.addWidget(self.video_mode_camera)
+        video_mode_layout.addWidget(self.video_mode_screen)
+        video_mode_layout.addStretch()
+        
+        live_layout.addLayout(video_mode_layout)
+
+        # Live Control Buttons
+        live_control_layout = QHBoxLayout()
+        
+        self.live_start_btn = QPushButton("▶️ 啟動 Live 模式")
+        self.live_start_btn.clicked.connect(self.start_live_mode)
+        self.live_start_btn.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; font-weight: bold; padding: 8px; border-radius: 4px; }")
+        
+        self.live_stop_btn = QPushButton("⏹️ 停止 Live 模式")
+        self.live_stop_btn.clicked.connect(self.stop_live_mode)
+        self.live_stop_btn.setEnabled(False)
+        self.live_stop_btn.setStyleSheet("QPushButton { background-color: #f44336; color: white; font-weight: bold; padding: 8px; border-radius: 4px; }")
+        
+        self.live_mute_btn = QPushButton("🔇 靜音")
+        self.live_mute_btn.clicked.connect(self.toggle_mute)
+        self.live_mute_btn.setEnabled(False)
+        self.live_mute_btn.setStyleSheet("QPushButton { background-color: #FF9800; color: white; font-weight: bold; padding: 8px; border-radius: 4px; }")
+        
+        live_control_layout.addWidget(self.live_start_btn)
+        live_control_layout.addWidget(self.live_stop_btn)
+        live_control_layout.addWidget(self.live_mute_btn)
+        
+        live_layout.addLayout(live_control_layout)
+
+        # Advanced Live Settings
+        advanced_layout = QHBoxLayout()
+        
+        # Voice Selection
+        advanced_layout.addWidget(QLabel("語音:"))
+        self.voice_combo = QComboBox()
+        self.voice_combo.addItems(["Zephyr", "Coral", "Nova", "Puck"])
+        self.voice_combo.setCurrentText("Zephyr")
+        advanced_layout.addWidget(self.voice_combo)
+        
+        # Response Modality
+        advanced_layout.addWidget(QLabel("回應模式:"))
+        self.response_mode_combo = QComboBox()
+        self.response_mode_combo.addItems(["僅音訊", "音訊+文字"])
+        advanced_layout.addWidget(self.response_mode_combo)
+        
+        advanced_layout.addStretch()
+        live_layout.addLayout(advanced_layout)
+
+        # Live Text Input (for sending text during live session)
+        live_layout.addWidget(QLabel("Live 模式文字輸入:"))
+        self.live_text_input = QTextEdit()
+        self.live_text_input.setPlaceholderText("在 Live 模式中輸入文字訊息...")
+        self.live_text_input.setFixedHeight(60)
+        self.live_text_input.setEnabled(False)
+        live_layout.addWidget(self.live_text_input)
+        
+        self.live_send_text_btn = QPushButton("📝 發送文字到 Live")
+        self.live_send_text_btn.clicked.connect(self.send_text_to_live)
+        self.live_send_text_btn.setEnabled(False)
+        live_layout.addWidget(self.live_send_text_btn)
+
+        live_group.setLayout(live_layout)
+        right_layout.addWidget(live_group)
+        
         main_splitter.addWidget(right_panel_widget)
 
         # --- Final Layout Assembly ---
@@ -142,6 +244,11 @@ class ControlPanel(QWidget):
         self.timer_gemini_response = QTimer()
         self.timer_gemini_response.timeout.connect(self.update_gemini_response)
         self.timer_gemini_response.start(250) # Check for Gemini responses
+
+        # Live Mode Status Timer
+        self.timer_live_status = QTimer()
+        self.timer_live_status.timeout.connect(self.update_live_status)
+        self.timer_live_status.start(500) # Check live mode status
 
         # Initial state
         self.stop_btn.setEnabled(False)
@@ -263,6 +370,201 @@ class ControlPanel(QWidget):
                  self.gemini_response_output.setText(f"Error displaying response: {e}")
                  log_queue_gemini.put(f"[UI] Error updating Gemini response widget: {e}")
 
+    # --- Live Mode Methods ---
+    def start_live_mode(self):
+        """啟動 Gemini Live 模式"""
+        if self.live_status['active']:
+            log_queue_gemini.put("[UI] Live mode is already active.")
+            return
+
+        # 獲取選擇的視訊模式
+        video_mode = "none"
+        if self.video_mode_camera.isChecked():
+            video_mode = "camera"
+        elif self.video_mode_screen.isChecked():
+            video_mode = "screen"
+
+        # 獲取語音和回應模式設定
+        voice_name = self.voice_combo.currentText()
+        response_modalities = ["AUDIO"]
+        if self.response_mode_combo.currentText() == "音訊+文字":
+            response_modalities = ["AUDIO", "TEXT"]
+
+        # 定義回調函數
+        def on_text_received(text):
+            log_queue_gemini.put(f"[Live] 收到文字: {text}")
+            # 在 UI 中顯示收到的文字
+            self.gemini_response_output.append(f"[Live回應] {text}")
+            self.gemini_response_output.verticalScrollBar().setValue(
+                self.gemini_response_output.verticalScrollBar().maximum()
+            )
+
+        def on_audio_received(audio_data):
+            log_queue_gemini.put(f"[Live] 收到音訊資料: {len(audio_data)} bytes")
+
+        try:
+            # 顯示啟動中狀態
+            self.live_status_label.setText("狀態：正在啟動 Live 模式...")
+            self.live_status_label.setStyleSheet("font-weight: bold; color: #FF9800; padding: 5px; background-color: #fff3e0; border-radius: 3px;")
+            self.live_start_btn.setEnabled(False)
+            QApplication.processEvents()  # 立即更新 UI
+            
+            self.live_status['video_mode'] = video_mode
+            success = self.gemini_client.start_live_session(
+                video_mode=video_mode,
+                voice_name=voice_name,
+                response_modalities=response_modalities,
+                on_text_received=on_text_received,
+                on_audio_received=on_audio_received
+            )
+            
+            if success:
+                self.live_status['active'] = True
+                self.update_live_ui_state()
+                log_queue_gemini.put(f"[UI] Live 模式已啟動 (視訊: {video_mode}, 語音: {voice_name})")
+            else:
+                log_queue_gemini.put("[UI] Live 模式啟動失敗")
+                self.live_start_btn.setEnabled(True)
+                self.live_status_label.setText("狀態：啟動失敗")
+                self.live_status_label.setStyleSheet("font-weight: bold; color: #f44336; padding: 5px; background-color: #ffebee; border-radius: 3px;")
+                
+        except Exception as e:
+            log_queue_gemini.put(f"[UI] Live 模式啟動錯誤: {e}")
+            self.live_start_btn.setEnabled(True)
+            self.live_status_label.setText(f"狀態：啟動錯誤 - {str(e)[:50]}")
+            self.live_status_label.setStyleSheet("font-weight: bold; color: #f44336; padding: 5px; background-color: #ffebee; border-radius: 3px;")
+
+    def stop_live_mode(self):
+        """停止 Gemini Live 模式"""
+        if not self.live_status['active']:
+            log_queue_gemini.put("[UI] No active live session to stop.")
+            return
+
+        try:
+            success = self.gemini_client.stop_live_session()
+            if success:
+                self.live_status['active'] = False
+                self.live_status['muted'] = False
+                self.update_live_ui_state()
+                log_queue_gemini.put("[UI] Live 模式已停止")
+            else:
+                log_queue_gemini.put("[UI] Live 模式停止失敗")
+                
+        except Exception as e:
+            log_queue_gemini.put(f"[UI] Live 模式停止錯誤: {e}")
+
+    def toggle_mute(self):
+        """切換靜音狀態"""
+        if not self.live_status['active']:
+            return
+        
+        self.live_status['muted'] = not self.live_status['muted']
+        
+        if self.live_status['muted']:
+            self.live_mute_btn.setText("🔊 取消靜音")
+            log_queue_gemini.put("[UI] Live 模式已靜音")
+        else:
+            self.live_mute_btn.setText("🔇 靜音")
+            log_queue_gemini.put("[UI] Live 模式已取消靜音")
+
+    def send_text_to_live(self):
+        """發送文字到 Live 模式"""
+        if not self.live_status['active']:
+            log_queue_gemini.put("[UI] Live 模式未啟動，無法發送文字")
+            return
+
+        text = self.live_text_input.toPlainText().strip()
+        if not text:
+            log_queue_gemini.put("[UI] 請輸入要發送的文字")
+            return
+
+        try:
+            success = self.gemini_client.send_text_to_live(text)
+            if success:
+                self.live_text_input.clear()
+                log_queue_gemini.put(f"[UI] 已發送文字到 Live 模式: {text[:50]}...")
+            else:
+                log_queue_gemini.put("[UI] 發送文字到 Live 模式失敗")
+                
+        except Exception as e:
+            log_queue_gemini.put(f"[UI] 發送文字錯誤: {e}")
+
+    def update_live_status(self):
+        """更新 Live 模式狀態顯示"""
+        try:
+            # 檢查實際的 Live 模式狀態（這個方法不應該觸發連接）
+            actual_active = self.gemini_client.is_live_mode_active()
+            
+            # 如果狀態不同步，更新本地狀態
+            if actual_active != self.live_status['active']:
+                log_queue_gemini.put(f"[UI] Live 狀態不同步，本地：{self.live_status['active']}，實際：{actual_active}")
+                self.live_status['active'] = actual_active
+                self.update_live_ui_state()
+                
+        except Exception as e:
+            log_queue_gemini.put(f"[UI] 檢查 Live 狀態時發生錯誤: {e}")
+
+    def update_live_ui_state(self):
+        """更新 Live 模式 UI 狀態"""
+        if self.live_status['active']:
+            # Live 模式啟動狀態
+            video_mode_text = {
+                'none': '無視訊',
+                'camera': '攝影機',
+                'screen': '螢幕截圖'
+            }.get(self.live_status['video_mode'], self.live_status['video_mode'])
+            
+            voice_name = self.voice_combo.currentText()
+            self.live_status_label.setText(f"狀態：Live 模式運行中 ({video_mode_text}, {voice_name})")
+            self.live_status_label.setStyleSheet("font-weight: bold; color: #4CAF50; padding: 5px; background-color: #e8f5e8; border-radius: 3px;")
+            
+            # 按鈕狀態
+            self.live_start_btn.setEnabled(False)
+            self.live_stop_btn.setEnabled(True)
+            self.live_mute_btn.setEnabled(True)
+            
+            # 輸入控制項狀態
+            self.live_text_input.setEnabled(True)
+            self.live_send_text_btn.setEnabled(True)
+            
+            # 禁用設定選項
+            self.video_mode_none.setEnabled(False)
+            self.video_mode_camera.setEnabled(False)
+            self.video_mode_screen.setEnabled(False)
+            self.voice_combo.setEnabled(False)
+            self.response_mode_combo.setEnabled(False)
+            
+            # 禁用傳統模式的輸入
+            self.gemini_prompt_input.setEnabled(False)
+            self.gemini_send_btn.setEnabled(False)
+            self.gemini_model_combo.setEnabled(False)
+            
+        else:
+            # Live 模式停止狀態
+            self.live_status_label.setText("狀態：未啟動")
+            self.live_status_label.setStyleSheet("font-weight: bold; color: #666; padding: 5px; background-color: #f0f0f0; border-radius: 3px;")
+            
+            # 按鈕狀態
+            self.live_start_btn.setEnabled(True)
+            self.live_stop_btn.setEnabled(False)
+            self.live_mute_btn.setEnabled(False)
+            self.live_mute_btn.setText("🔇 靜音")
+            
+            # 輸入控制項狀態
+            self.live_text_input.setEnabled(False)
+            self.live_send_text_btn.setEnabled(False)
+            
+            # 啟用設定選項
+            self.video_mode_none.setEnabled(True)
+            self.video_mode_camera.setEnabled(True)
+            self.video_mode_screen.setEnabled(True)
+            self.voice_combo.setEnabled(True)
+            self.response_mode_combo.setEnabled(True)
+            
+            # 啟用傳統模式的輸入
+            self.gemini_prompt_input.setEnabled(True)
+            self.gemini_send_btn.setEnabled(True)
+            self.gemini_model_combo.setEnabled(True)
 
     # --- Camera View Update ---
     def update_camera_view(self):
@@ -302,6 +604,12 @@ class ControlPanel(QWidget):
     def closeEvent(self, event):
         """Ensure threads are stopped when the window is closed."""
         log_queue_system.put("[UI] Window close requested. Stopping threads...")
+        
+        # 停止 Live 模式
+        if self.live_status['active']:
+            log_queue_system.put("[UI] Stopping Live mode before closing...")
+            self.stop_live_mode()
+        
         self.stop_threads_ui()
         # Give threads a moment to stop (optional, daemon threads should exit anyway)
         # time.sleep(0.5)
