@@ -1,15 +1,7 @@
-from core import start_all_threads
-from ui import launch_ui, update_camera_info, update_reid_results
-from reid_manager import ReIDManager
+from ui import launch_ui
 
 def main():
-    # 初始化模組
-    reid_manager = ReIDManager()
-
-    # 啟動其他系統模組
-    start_all_threads()
-
-    # 啟動 UI
+    # 啟動 UI (其他系統模組將在 UI 中控制)
     launch_ui()
 
 if __name__ == "__main__":
