@@ -19,12 +19,12 @@ from shared_queue import log_queue_gemini
 # --- Configuration ---
 # IMPORTANT: Set your API key as an environment variable
 # export GOOGLE_API_KEY="YOUR_API_KEY" or GEMINI_API_KEY="YOUR_API_KEY"
-API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "AIzaSyAdf5Mg-42Ccd6lON8S3Rr2kK5okWHV53Q"
+API_KEY = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
 if not API_KEY:
     log_queue_gemini.put("[GeminiClient] Error: GOOGLE_API_KEY or GEMINI_API_KEY environment variable not set.")
 
 DEFAULT_MODEL = "gemini-1.5-flash"
-LIVE_MODEL = "models/gemini-2.5-flash-preview-native-audio-dialog"
+LIVE_MODEL = "models/gemini-2.5-flash-preview-native-audio-dialog"  # 正確的 Live API 模型
 
 # Audio settings for Live API
 FORMAT = pyaudio.paInt16
@@ -114,8 +114,25 @@ class GeminiClient:
                 return "Error: Unexpected response format from API."
 
         except Exception as e:
-            log_queue_gemini.put(f"[GeminiClient] Error generating response: {e}")
-            return f"Error: API call failed. {e}"
+            error_msg = str(e)
+            log_queue_gemini.put(f"[GeminiClient] Error generating response: {error_msg}")
+            
+            # 檢查是否為配額超限錯誤
+            if self._is_quota_error(error_msg):
+                quota_error_msg = self._get_quota_error_message()
+                log_queue_gemini.put(f"[GeminiClient] {quota_error_msg}")
+                return f"配額錯誤: {quota_error_msg}"
+            
+            # 檢查是否為認證錯誤
+            elif "invalid api key" in error_msg.lower() or "api key not valid" in error_msg.lower():
+                return "錯誤: API 金鑰無效。請檢查您的 GOOGLE_API_KEY 或 GEMINI_API_KEY 環境變數。"
+            
+            # 檢查是否為模型不存在
+            elif "model not found" in error_msg.lower():
+                return f"錯誤: 找不到模型 '{self.current_model_name}'。請使用有效的模型名稱。"
+            
+            # 其他錯誤
+            return f"錯誤: API 呼叫失敗。{error_msg}"
 
     def list_available_models(self):
         """列出可用的 Gemini 模型，使用 google.genai API"""
@@ -194,20 +211,59 @@ class GeminiClient:
             
             log_queue_gemini.put(f"[GeminiClient] Creating Live config with voice={voice_name}, modalities={response_modalities}")
             
-            # 建立 Live 配置
-            config = types.LiveConnectConfig(
-                response_modalities=response_modalities,
-                media_resolution="MEDIA_RESOLUTION_MEDIUM",
-                speech_config=types.SpeechConfig(
-                    voice_config=types.VoiceConfig(
-                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice_name)
+            # 診斷：驗證模型是否存在
+            log_queue_gemini.put(f"[DIAGNOSIS] Attempting to use Live model: {LIVE_MODEL}")
+            
+            # 診斷：檢查可用模型列表
+            try:
+                available_models = self.list_available_models()
+                log_queue_gemini.put(f"[DIAGNOSIS] Available models: {available_models}")
+                live_model_exists = any('live' in model.lower() or 'dialog' in model.lower() for model in available_models)
+                log_queue_gemini.put(f"[DIAGNOSIS] Live model variants found: {live_model_exists}")
+            except Exception as model_check_error:
+                log_queue_gemini.put(f"[DIAGNOSIS] Error checking available models: {model_check_error}")
+            
+            # 診斷：驗證配置參數
+            log_queue_gemini.put(f"[DIAGNOSIS] Config parameters:")
+            log_queue_gemini.put(f"  - response_modalities: {response_modalities}")
+            log_queue_gemini.put(f"  - voice_name: {voice_name}")
+            log_queue_gemini.put(f"  - video_mode: {video_mode}")
+            
+            # 建立 Live 配置（簡化版本以排除參數問題）
+            try:
+                # 先嘗試最簡配置
+                config = types.LiveConnectConfig(
+                    response_modalities=response_modalities,
+                    speech_config=types.SpeechConfig(
+                        voice_config=types.VoiceConfig(
+                            prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice_name)
+                        )
                     )
-                ),
-                context_window_compression=types.ContextWindowCompressionConfig(
-                    trigger_tokens=25600,
-                    sliding_window=types.SlidingWindow(target_tokens=12800),
-                ),
-            )
+                )
+                log_queue_gemini.put("[DIAGNOSIS] Basic Live config created successfully")
+                
+                # 如果基本配置成功，再添加進階設定
+                try:
+                    config = types.LiveConnectConfig(
+                        response_modalities=response_modalities,
+                        media_resolution="MEDIA_RESOLUTION_MEDIUM",
+                        speech_config=types.SpeechConfig(
+                            voice_config=types.VoiceConfig(
+                                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice_name)
+                            )
+                        ),
+                        context_window_compression=types.ContextWindowCompressionConfig(
+                            trigger_tokens=25600,
+                            sliding_window=types.SlidingWindow(target_tokens=12800),
+                        ),
+                    )
+                    log_queue_gemini.put("[DIAGNOSIS] Full Live config created successfully")
+                except Exception as advanced_config_error:
+                    log_queue_gemini.put(f"[DIAGNOSIS] Advanced config failed, using basic config: {advanced_config_error}")
+                    
+            except Exception as basic_config_error:
+                log_queue_gemini.put(f"[DIAGNOSIS] Basic config creation failed: {basic_config_error}")
+                raise
 
             log_queue_gemini.put("[GeminiClient] Creating AudioLoop...")
             # 建立 AudioLoop 實例
@@ -232,8 +288,19 @@ class GeminiClient:
             return True
 
         except Exception as e:
-            log_queue_gemini.put(f"[GeminiClient] Error starting live session: {e}")
+            error_msg = str(e)
+            log_queue_gemini.put(f"[GeminiClient] Error starting live session: {error_msg}")
             log_queue_gemini.put(f"[GeminiClient] Start live session traceback: {traceback.format_exc()}")
+            
+            # 檢查是否為配額超限錯誤
+            if self._is_quota_error(error_msg):
+                quota_error_msg = self._get_quota_error_message()
+                log_queue_gemini.put(f"[GeminiClient] Live API 配額錯誤: {quota_error_msg}")
+            
+            # 檢查是否為模型不支援錯誤
+            elif "model not found" in error_msg.lower() or "not supported" in error_msg.lower():
+                log_queue_gemini.put("[GeminiClient] Live API 可能未啟用或模型不支援。請確認您的帳號有 Live API 存取權限。")
+            
             return False
 
     def _run_live_session_thread(self):
@@ -306,7 +373,7 @@ class GeminiClient:
         try:
             if self.live_event_loop and not self.live_event_loop.is_closed():
                 asyncio.run_coroutine_threadsafe(
-                    self.audio_loop.send_text(text),
+                    self.audio_loop.send_text_message(text),
                     self.live_event_loop
                 )
                 return True
@@ -358,6 +425,44 @@ class GeminiClient:
     def get_current_mode(self):
         """取得目前模式"""
         return "live" if self.live_mode_active else "text"
+    
+    def _is_quota_error(self, error_msg: str) -> bool:
+        """檢查是否為配額超限錯誤。
+        
+        Args:
+            error_msg: 錯誤訊息字串
+            
+        Returns:
+            bool: 如果是配額錯誤則返回 True，否則返回 False
+        """
+        error_msg_lower = error_msg.lower()
+        quota_indicators = [
+            "quota",
+            "rate limit",
+            "too many requests",
+            "resource exhausted",
+            "1011",  # 配額錯誤碼
+            "429",   # HTTP 429 Too Many Requests
+            "limit exceeded",
+            "quota exceeded"
+        ]
+        
+        return any(indicator in error_msg_lower for indicator in quota_indicators)
+    
+    def _get_quota_error_message(self) -> str:
+        """獲取配額錯誤的詳細說明。
+        
+        Returns:
+            str: 配額錯誤的詳細說明和解決建議
+        """
+        return (
+            "您的 API 配額已用盡。請採取以下措施：\n"
+            "1. 等待配額重置（通常為每分鐘或每日限制）\n"
+            "2. 檢查 Google AI Studio 中的配額使用情況：https://aistudio.google.com/\n"
+            "3. 如果是免費帳號，考慮升級到付費方案以獲得更高配額\n"
+            "4. 減少 API 呼叫頻率或優化您的使用模式\n"
+            "5. 使用 check_api_quota.py 工具來診斷問題"
+        )
 
 
 class AudioLoop:
@@ -385,7 +490,11 @@ class AudioLoop:
         """運行主要的 Live session"""
         try:
             self.running = True
-            log_queue_gemini.put("[AudioLoop] Connecting to Live API...")
+            log_queue_gemini.put("[AudioLoop] Starting Live session run...")
+            
+            # 記錄連接參數
+            log_queue_gemini.put(f"[AudioLoop] Connecting with model: {LIVE_MODEL}")
+            log_queue_gemini.put(f"[AudioLoop] Video mode: {self.video_mode}")
             
             async with (
                 self.client.aio.live.connect(model=LIVE_MODEL, config=self.config) as session,
@@ -394,28 +503,36 @@ class AudioLoop:
                 self.session = session
                 log_queue_gemini.put("[AudioLoop] Connected to Live API successfully!")
                 
+                # 初始化佇列
                 self.audio_in_queue = asyncio.Queue()
                 self.out_queue = asyncio.Queue(maxsize=5)
                 
-                # 建立各種任務
-                self.tasks.append(tg.create_task(self.send_realtime()))
-                self.tasks.append(tg.create_task(self.listen_audio()))
+                # 建立所有任務
+                send_text_task = tg.create_task(self.send_text())
+                tg.create_task(self.send_realtime())
+                tg.create_task(self.listen_audio())
                 
                 if self.video_mode == "camera":
-                    self.tasks.append(tg.create_task(self.get_frames()))
+                    tg.create_task(self.get_frames())
                 elif self.video_mode == "screen":
-                    self.tasks.append(tg.create_task(self.get_screen()))
+                    tg.create_task(self.get_screen())
                 
-                self.tasks.append(tg.create_task(self.receive_audio()))
-                self.tasks.append(tg.create_task(self.play_audio()))
+                tg.create_task(self.receive_audio())
+                tg.create_task(self.play_audio())
                 
-                log_queue_gemini.put("[AudioLoop] All tasks started, entering main loop...")
+                log_queue_gemini.put("[AudioLoop] All tasks started successfully")
                 
-                # 等待任務完成或被取消
-                await asyncio.Event().wait()  # 無限等待直到被外部停止
+                # 等待 send_text_task 完成（當使用者輸入 'q' 時）
+                await send_text_task
+                raise asyncio.CancelledError("User requested exit")
 
         except asyncio.CancelledError:
             log_queue_gemini.put("[AudioLoop] Session cancelled.")
+        except ExceptionGroup as EG:
+            if self.audio_stream:
+                self.audio_stream.close()
+            log_queue_gemini.put(f"[AudioLoop] ExceptionGroup error: {EG}")
+            traceback.print_exception(EG)
         except Exception as e:
             log_queue_gemini.put(f"[AudioLoop] Session error: {e}")
             log_queue_gemini.put(f"[AudioLoop] Full traceback: {traceback.format_exc()}")
@@ -423,7 +540,6 @@ class AudioLoop:
             self.running = False
             if self.audio_stream:
                 self.audio_stream.close()
-            self.pya.terminate()
             log_queue_gemini.put("[AudioLoop] AudioLoop cleanup completed.")
 
     def stop(self):
@@ -434,8 +550,19 @@ class AudioLoop:
             if not task.done():
                 task.cancel()
 
-    async def send_text(self, text: str):
-        """發送文字訊息"""
+    async def send_text(self):
+        """等待使用者輸入並發送文字（參考官方範例）"""
+        while True:
+            text = await asyncio.to_thread(
+                input,
+                "message > ",
+            )
+            if text.lower() == "q":
+                break
+            await self.session.send(input=text or ".", end_of_turn=True)
+
+    async def send_text_message(self, text: str):
+        """直接發送文字訊息"""
         if self.session:
             await self.session.send(input=text, end_of_turn=True)
 
@@ -492,6 +619,10 @@ class AudioLoop:
         """接收音訊回應"""
         while self.running:
             try:
+                if not self.session:
+                    await asyncio.sleep(0.1)
+                    continue
+                    
                 turn = self.session.receive()
                 async for response in turn:
                     if data := response.data:
@@ -500,10 +631,11 @@ class AudioLoop:
                             self.on_audio_received(data)
                         continue
                     if text := response.text:
+                        log_queue_gemini.put(f"[AudioLoop] Received text: {text}")
                         if self.on_text_received:
                             self.on_text_received(text)
 
-                # 處理中斷情況
+                # 處理中斷情況 - 清空音訊佇列
                 while not self.audio_in_queue.empty():
                     self.audio_in_queue.get_nowait()
                     

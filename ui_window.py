@@ -1,12 +1,20 @@
-import threading
+"""UI window implementation for the Security Robot AI system.
+
+This module provides the main GUI interface using PyQt5, including camera display,
+log viewers, and Gemini AI interaction controls.
+"""
+
 import queue
+import threading
+from typing import Optional
 
 import cv2
 from PyQt5.QtCore import Qt, QTimer  # Added Qt
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtGui import QImage, QPalette, QPixmap  # Added QPalette
 from PyQt5.QtWidgets import (  # Added QComboBox; Added QSplitter for better layout management and QApplication
-    QApplication, QComboBox, QGroupBox, QHBoxLayout, QLabel, QPushButton,
-    QSizePolicy, QSplitter, QTextEdit, QVBoxLayout, QWidget, QButtonGroup, QRadioButton)
+    QApplication, QButtonGroup, QComboBox, QGroupBox, QHBoxLayout, QLabel,
+    QPushButton, QRadioButton, QSizePolicy, QSplitter, QTextEdit, QVBoxLayout,
+    QWidget)
 
 # from core import start_all_threads # Keep this if start_threads uses it directly
 from core import start_all_threads  # Import stop function too
@@ -258,13 +266,20 @@ class ControlPanel(QWidget):
         group = QGroupBox(title)
         log_widget = QTextEdit()
         log_widget.setReadOnly(True)
-        log_widget.setStyleSheet("""
-            QTextEdit {
-                background-color: #f7f7f7;
+
+        # Get system palette for better theme compatibility
+        palette = QApplication.palette()
+        base_color = palette.color(QPalette.Base).name()
+        text_color = palette.color(QPalette.Text).name()
+
+        log_widget.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: {base_color};
+                color: {text_color};
                 font-family: Consolas;
                 font-size: 11pt;
                 padding: 5px;
-            }
+            }}
         """)
         group.setStyleSheet("""
             QGroupBox {
@@ -361,13 +376,33 @@ class ControlPanel(QWidget):
         while not gemini_response_queue.empty():
             try:
                 response_text = gemini_response_queue.get_nowait()
-                self.gemini_response_output.setText(response_text)
+                
+                # 檢查是否為配額錯誤
+                if "配額錯誤:" in response_text:
+                    # 使用特殊樣式顯示配額錯誤
+                    self.gemini_response_output.setStyleSheet("background-color: #ffebee; color: #c62828;")
+                    self.gemini_response_output.setText(response_text)
+                    
+                    # 在日誌中也顯示
+                    log_queue_gemini.put("[UI] API 配額超限！請查看回應視窗中的詳細說明。")
+                    
+                elif "錯誤:" in response_text:
+                    # 其他錯誤使用不同樣式
+                    self.gemini_response_output.setStyleSheet("background-color: #fff3e0; color: #e65100;")
+                    self.gemini_response_output.setText(response_text)
+                    
+                else:
+                    # 正常回應恢復原本樣式
+                    self.gemini_response_output.setStyleSheet("background-color: #e9f5ff;")
+                    self.gemini_response_output.setText(response_text)
+                    
                 # Re-enable send button
                 # self.gemini_send_btn.setEnabled(True)
             except queue.Empty:
                 break
             except Exception as e:
-                 self.gemini_response_output.setText(f"Error displaying response: {e}")
+                 self.gemini_response_output.setStyleSheet("background-color: #ffebee; color: #c62828;")
+                 self.gemini_response_output.setText(f"顯示回應時發生錯誤: {e}")
                  log_queue_gemini.put(f"[UI] Error updating Gemini response widget: {e}")
 
     # --- Live Mode Methods ---
@@ -425,14 +460,57 @@ class ControlPanel(QWidget):
             else:
                 log_queue_gemini.put("[UI] Live 模式啟動失敗")
                 self.live_start_btn.setEnabled(True)
-                self.live_status_label.setText("狀態：啟動失敗")
+                
+                # 檢查是否為配額錯誤（從 log_queue_gemini 中獲取最新訊息）
+                error_msg = "啟動失敗"
+                try:
+                    # 嘗試從日誌佇列獲取更詳細的錯誤訊息
+                    temp_msgs = []
+                    while not log_queue_gemini.empty():
+                        msg = log_queue_gemini.get_nowait()
+                        temp_msgs.append(msg)
+                        if "配額錯誤" in str(msg) or "quota" in str(msg).lower():
+                            error_msg = "配額超限 - 請檢查 API 使用量"
+                            break
+                        elif "not supported" in str(msg).lower() or "model not found" in str(msg).lower():
+                            error_msg = "Live API 未啟用或不支援"
+                            break
+                    
+                    # 將訊息放回佇列
+                    for msg in temp_msgs:
+                        log_queue_gemini.put(msg)
+                        
+                except:
+                    pass
+                
+                self.live_status_label.setText(f"狀態：{error_msg}")
                 self.live_status_label.setStyleSheet("font-weight: bold; color: #f44336; padding: 5px; background-color: #ffebee; border-radius: 3px;")
                 
         except Exception as e:
-            log_queue_gemini.put(f"[UI] Live 模式啟動錯誤: {e}")
+            error_str = str(e)
+            log_queue_gemini.put(f"[UI] Live 模式啟動錯誤: {error_str}")
             self.live_start_btn.setEnabled(True)
-            self.live_status_label.setText(f"狀態：啟動錯誤 - {str(e)[:50]}")
+            
+            # 分析錯誤類型
+            if "quota" in error_str.lower() or "1011" in error_str:
+                error_display = "配額超限"
+                detailed_msg = "API 配額已用盡。請等待重置或升級方案。"
+            elif "invalid api key" in error_str.lower():
+                error_display = "API 金鑰無效"
+                detailed_msg = "請檢查您的 API 金鑰設定。"
+            elif "model not found" in error_str.lower():
+                error_display = "模型不支援"
+                detailed_msg = "Live API 可能未啟用或帳號無權限。"
+            else:
+                error_display = "啟動錯誤"
+                detailed_msg = error_str[:100]
+            
+            self.live_status_label.setText(f"狀態：{error_display}")
             self.live_status_label.setStyleSheet("font-weight: bold; color: #f44336; padding: 5px; background-color: #ffebee; border-radius: 3px;")
+            
+            # 在回應區域顯示詳細錯誤
+            self.gemini_response_output.setStyleSheet("background-color: #ffebee; color: #c62828;")
+            self.gemini_response_output.setText(f"Live 模式啟動失敗\n\n錯誤類型：{error_display}\n詳細資訊：{detailed_msg}\n\n建議：使用 check_api_quota.py 工具診斷問題")
 
     def stop_live_mode(self):
         """停止 Gemini Live 模式"""

@@ -1,6 +1,13 @@
+"""Worker threads for various system components.
+
+This module contains worker functions that run in separate threads to handle
+camera capture, stream processing, re-identification, and Gemini AI interactions.
+"""
+
 import queue
 import random
 import time
+from typing import Optional
 
 import cv2
 
@@ -76,11 +83,19 @@ def camera_worker(cam_id=0):
     log_queue_system.put("[CameraWorker] 攝影機已關閉")
 
 # --- New Gemini Worker ---
-def gemini_worker():
-    """Handles Gemini API requests from the UI."""
+def gemini_worker() -> None:
+    """Worker thread for handling Gemini API interactions.
+    
+    Reads prompts from gemini_prompt_queue and sends responses to gemini_response_queue.
+    Implements quota error handling with cooldown period.
+    """
     log_queue_gemini.put("[GeminiWorker] Initializing...")
     client = GeminiClient()
-    current_model = None
+    current_model: Optional[str] = None
+    
+    # Track quota error timing to avoid frequent retries
+    last_quota_error_time: float = 0
+    quota_error_cooldown: int = 60  # Wait 60 seconds after quota error
 
     while not stop_event.is_set():
         try:
@@ -93,28 +108,53 @@ def gemini_worker():
                 log_queue_gemini.put("[GeminiWorker] Invalid prompt data received.")
                 continue
 
+            # 檢查是否在配額錯誤冷卻期間
+            current_time = time.time()
+            if last_quota_error_time > 0 and (current_time - last_quota_error_time) < quota_error_cooldown:
+                remaining_cooldown = int(quota_error_cooldown - (current_time - last_quota_error_time))
+                error_msg = f"配額錯誤: API 配額已用盡。請等待 {remaining_cooldown} 秒後再試。\n\n建議使用 check_api_quota.py 工具檢查配額狀態。"
+                gemini_response_queue.put(error_msg)
+                log_queue_gemini.put(f"[GeminiWorker] 配額錯誤冷卻中，剩餘 {remaining_cooldown} 秒")
+                continue
+
             # Update model if changed
             if model_name != current_model:
                 if client.set_model(model_name):
                     current_model = model_name
+                    log_queue_gemini.put(f"[GeminiWorker] 模型已切換至: {model_name}")
                 else:
-                    # Failed to set model, put error back?
-                    gemini_response_queue.put(f"Error: Failed to set Gemini model to {model_name}")
-                    continue # Skip generation if model setup failed
+                    # Failed to set model
+                    gemini_response_queue.put(f"錯誤: 無法設定 Gemini 模型為 {model_name}")
+                    continue  # Skip generation if model setup failed
 
             # Generate response
-            if client.model: # Check if model was successfully initialized
-                 response = client.generate_response(prompt_text)
-                 gemini_response_queue.put(response)
+            log_queue_gemini.put(f"[GeminiWorker] 正在生成回應...")
+            response = client.generate_response(prompt_text)
+            
+            # 檢查回應是否為配額錯誤
+            if "配額錯誤:" in response:
+                last_quota_error_time = current_time
+                log_queue_gemini.put("[GeminiWorker] 檢測到配額超限錯誤")
             else:
-                 gemini_response_queue.put("Error: Gemini model not available.")
-
+                # 成功的回應，重置配額錯誤時間
+                last_quota_error_time = 0
+                
+            gemini_response_queue.put(response)
+            log_queue_gemini.put(f"[GeminiWorker] 回應已生成並發送到 UI")
 
         except queue.Empty:
             # No prompt received, continue loop
             continue
         except Exception as e:
-            log_queue_gemini.put(f"[GeminiWorker] Error processing prompt: {e}")
-            gemini_response_queue.put(f"Error: An internal error occurred in Gemini worker. {e}")
+            error_str = str(e)
+            log_queue_gemini.put(f"[GeminiWorker] 處理提示時發生錯誤: {error_str}")
+            
+            # 檢查是否為配額相關錯誤
+            if any(indicator in error_str.lower() for indicator in ["quota", "rate limit", "1011", "429"]):
+                last_quota_error_time = time.time()
+                error_msg = "配額錯誤: API 配額已用盡。\n\n請採取以下措施：\n1. 等待配額重置（通常為每分鐘或每日限制）\n2. 檢查 Google AI Studio 中的配額使用情況\n3. 考慮升級到付費方案以獲得更高配額\n4. 使用 check_api_quota.py 工具診斷問題"
+                gemini_response_queue.put(error_msg)
+            else:
+                gemini_response_queue.put(f"錯誤: Gemini worker 內部錯誤。{error_str}")
 
     log_queue_gemini.put("[GeminiWorker] Shutting down.")

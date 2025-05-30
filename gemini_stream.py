@@ -11,17 +11,19 @@ pip install google-genai opencv-python pyaudio pillow mss
 ```
 """
 
-import argparse
+import os
 import asyncio
 import base64
 import io
-import os
 import traceback
 
 import cv2
-import mss
-import PIL.Image
 import pyaudio
+import PIL.Image
+import mss
+
+import argparse
+
 from google import genai
 from google.genai import types
 
