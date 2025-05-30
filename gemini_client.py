@@ -5,6 +5,7 @@ import io
 import traceback
 from typing import Optional, Dict, Any, Callable, List
 import threading
+import numpy as np # MODIFIED
 
 # 完全使用 google.genai API
 from google import genai
@@ -32,6 +33,10 @@ CHANNELS = 1
 SEND_SAMPLE_RATE = 16000
 RECEIVE_SAMPLE_RATE = 24000
 CHUNK_SIZE = 1024
+# SILENCE_THRESHOLD = 500 # 可調整的靜音閾值 (RMS) # MODIFIED # Replaced by ENERGY_THRESHOLD
+ENERGY_THRESHOLD = 100 # 可調整的能量閾值 (平均絕對值) # MODIFIED
+MIN_SILENCE_CHUNKS_TO_STOP_SENDING = 3 # 連續多少個靜音塊後停止發送 # MODIFIED
+MIN_VOICE_CHUNKS_TO_START_SENDING = 1 # 連續多少個語音塊後開始發送 # MODIFIED
 
 class GeminiClient:
     """統一的 Gemini API 客戶端，完全基於 google.genai API，支援傳統文字模式和 Live 互動模式"""
@@ -183,7 +188,7 @@ class GeminiClient:
             on_text_received: 接收到文字時的回調函數
             on_audio_received: 接收到音訊時的回調函數
         """
-        log_queue_gemini.put(f"[GeminiClient] start_live_session called with video_mode={video_mode}")
+        log_queue_gemini.put(f"[GeminiClient THREAD_ID:{threading.get_ident()}] start_live_session called with video_mode={video_mode}") # MODIFIED
         
         # 移除環境變數禁用檢查，允許 Live 模式啟動
         # 註解掉原本的禁用邏輯
@@ -192,39 +197,39 @@ class GeminiClient:
         #     return False
         
         if self.live_mode_active:
-            log_queue_gemini.put("[GeminiClient] Live session already active.")
+            log_queue_gemini.put(f"[GeminiClient THREAD_ID:{threading.get_ident()}] Live session already active. Current audio_loop: {id(self.audio_loop) if self.audio_loop else 'None'}") # MODIFIED
             return False
 
         if not self.api_key:
-            log_queue_gemini.put("[GeminiClient] Cannot start live session: API key is missing.")
+            log_queue_gemini.put(f"[GeminiClient THREAD_ID:{threading.get_ident()}] Cannot start live session: API key is missing.") # MODIFIED
             return False
 
         if not self.client:
-            log_queue_gemini.put("[GeminiClient] Cannot start live session: Client not configured.")
+            log_queue_gemini.put(f"[GeminiClient THREAD_ID:{threading.get_ident()}] Cannot start live session: Client not configured.") # MODIFIED
             return False
 
         try:
-            log_queue_gemini.put("[GeminiClient] Starting Live session...")
+            log_queue_gemini.put(f"[GeminiClient THREAD_ID:{threading.get_ident()}] Starting Live session...") # MODIFIED
             
             if response_modalities is None:
                 response_modalities = ["AUDIO"]
             
-            log_queue_gemini.put(f"[GeminiClient] Creating Live config with voice={voice_name}, modalities={response_modalities}")
+            log_queue_gemini.put(f"[GeminiClient THREAD_ID:{threading.get_ident()}] Creating Live config with voice={voice_name}, modalities={response_modalities}") # MODIFIED
             
             # 診斷：驗證模型是否存在
-            log_queue_gemini.put(f"[DIAGNOSIS] Attempting to use Live model: {LIVE_MODEL}")
+            log_queue_gemini.put(f"[DIAGNOSIS THREAD_ID:{threading.get_ident()}] Attempting to use Live model: {LIVE_MODEL}") # MODIFIED
             
             # 診斷：檢查可用模型列表
             try:
                 available_models = self.list_available_models()
-                log_queue_gemini.put(f"[DIAGNOSIS] Available models: {available_models}")
+                log_queue_gemini.put(f"[DIAGNOSIS THREAD_ID:{threading.get_ident()}] Available models: {available_models}") # MODIFIED
                 live_model_exists = any('live' in model.lower() or 'dialog' in model.lower() for model in available_models)
-                log_queue_gemini.put(f"[DIAGNOSIS] Live model variants found: {live_model_exists}")
+                log_queue_gemini.put(f"[DIAGNOSIS THREAD_ID:{threading.get_ident()}] Live model variants found: {live_model_exists}") # MODIFIED
             except Exception as model_check_error:
-                log_queue_gemini.put(f"[DIAGNOSIS] Error checking available models: {model_check_error}")
+                log_queue_gemini.put(f"[DIAGNOSIS THREAD_ID:{threading.get_ident()}] Error checking available models: {model_check_error}") # MODIFIED
             
             # 診斷：驗證配置參數
-            log_queue_gemini.put(f"[DIAGNOSIS] Config parameters:")
+            log_queue_gemini.put(f"[DIAGNOSIS THREAD_ID:{threading.get_ident()}] Config parameters:") # MODIFIED
             log_queue_gemini.put(f"  - response_modalities: {response_modalities}")
             log_queue_gemini.put(f"  - voice_name: {voice_name}")
             log_queue_gemini.put(f"  - video_mode: {video_mode}")
@@ -240,7 +245,7 @@ class GeminiClient:
                         )
                     )
                 )
-                log_queue_gemini.put("[DIAGNOSIS] Basic Live config created successfully")
+                log_queue_gemini.put(f"[DIAGNOSIS THREAD_ID:{threading.get_ident()}] Basic Live config created successfully") # MODIFIED
                 
                 # 如果基本配置成功，再添加進階設定
                 try:
@@ -257,15 +262,15 @@ class GeminiClient:
                             sliding_window=types.SlidingWindow(target_tokens=12800),
                         ),
                     )
-                    log_queue_gemini.put("[DIAGNOSIS] Full Live config created successfully")
+                    log_queue_gemini.put(f"[DIAGNOSIS THREAD_ID:{threading.get_ident()}] Full Live config created successfully") # MODIFIED
                 except Exception as advanced_config_error:
-                    log_queue_gemini.put(f"[DIAGNOSIS] Advanced config failed, using basic config: {advanced_config_error}")
+                    log_queue_gemini.put(f"[DIAGNOSIS THREAD_ID:{threading.get_ident()}] Advanced config failed, using basic config: {advanced_config_error}") # MODIFIED
                     
             except Exception as basic_config_error:
-                log_queue_gemini.put(f"[DIAGNOSIS] Basic config creation failed: {basic_config_error}")
+                log_queue_gemini.put(f"[DIAGNOSIS THREAD_ID:{threading.get_ident()}] Basic config creation failed: {basic_config_error}") # MODIFIED
                 raise
 
-            log_queue_gemini.put("[GeminiClient] Creating AudioLoop...")
+            log_queue_gemini.put(f"[GeminiClient THREAD_ID:{threading.get_ident()}] Creating AudioLoop. Current audio_loop: {id(self.audio_loop) if self.audio_loop else 'None'}") # MODIFIED
             # 建立 AudioLoop 實例
             self.audio_loop = AudioLoop(
                 client=self.client,
@@ -274,8 +279,9 @@ class GeminiClient:
                 on_text_received=on_text_received,
                 on_audio_received=on_audio_received
             )
+            log_queue_gemini.put(f"[GeminiClient THREAD_ID:{threading.get_ident()}] New AudioLoop instance created with ID: {id(self.audio_loop)}") # MODIFIED
 
-            log_queue_gemini.put("[GeminiClient] Starting Live session thread...")
+            log_queue_gemini.put(f"[GeminiClient THREAD_ID:{threading.get_ident()}] Starting Live session thread...") # MODIFIED
             # 在新執行緒中啟動 Live session
             self.live_thread = threading.Thread(
                 target=self._run_live_session_thread,
@@ -468,8 +474,9 @@ class GeminiClient:
 class AudioLoop:
     """完全基於 google.genai API 的 AudioLoop 類別"""
     
-    def __init__(self, client, config, video_mode="none", 
+    def __init__(self, client, config, video_mode="none",
                  on_text_received=None, on_audio_received=None):
+        log_queue_gemini.put(f"[AudioLoop THREAD_ID:{threading.get_ident()}] __init__ called. Object ID: {id(self)}") # MODIFIED
         self.client = client
         self.config = config
         self.video_mode = video_mode
@@ -485,6 +492,10 @@ class AudioLoop:
         
         self.running = False
         self.tasks = []
+        self.sending_audio = True # 新增狀態，初始時發送音訊 # MODIFIED
+        self.silent_chunks_count = 0 # MODIFIED
+        self.voice_chunks_count = 0 # MODIFIED
+        self.is_gemini_speaking = asyncio.Event() # MODIFIED
 
     async def run(self):
         """運行主要的 Live session"""
@@ -546,6 +557,8 @@ class AudioLoop:
         """停止 AudioLoop"""
         log_queue_gemini.put("[AudioLoop] Stopping AudioLoop...")
         self.running = False
+        self.on_text_received = None # 確保回調被清理
+        self.on_audio_received = None # 同樣清理音訊回調以保持一致性
         for task in self.tasks:
             if not task.done():
                 task.cancel()
@@ -582,7 +595,11 @@ class AudioLoop:
             try:
                 msg = await self.out_queue.get()
                 if self.session:
-                    await self.session.send(input=msg)
+                    # if msg is END_OF_TURN_MARKER: # MODIFIED - REMOVED
+                    #     log_queue_gemini.put(f"[AudioLoop DEBUG] send_realtime: Sending end_of_turn=True to API.") # MODIFIED - REMOVED
+                    #     await self.session.send(end_of_turn=True) # MODIFIED - REMOVED
+                    # else: # MODIFIED - REMOVED
+                    await self.session.send(input=msg) # MODIFIED
             except asyncio.CancelledError:
                 break
             except Exception as e:
@@ -608,36 +625,95 @@ class AudioLoop:
                 data = await asyncio.to_thread(
                     self.audio_stream.read, CHUNK_SIZE, **kwargs
                 )
-                await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
                 
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            log_queue_gemini.put(f"[AudioLoop] Error in listen_audio: {e}")
+                # 基礎靜音檢測 # MODIFIED
+                audio_segment = np.frombuffer(data, dtype=np.int16) # MODIFIED
+                if audio_segment.size == 0: # MODIFIED
+                    energy = 0 # 如果數據為空，能量為0 # MODIFIED
+                else: # MODIFIED
+                    energy = np.mean(np.abs(audio_segment)) # 使用平均絕對值作為能量 # MODIFIED
+                
+                # 不需要再檢查 nan，因為 abs 和 mean 不太可能產生 nan，除非輸入本身是 nan
+                # if np.isnan(energy): # 檢查 energy 是否為 nan
+                #     log_queue_gemini.put(f"[AudioLoop] Energy is nan, treating as silence. Original data length: {len(data)}")
+                #     energy = 0 # 如果是 nan，視為靜音
+
+                # 當 Gemini 正在說話時，我們不應該發送任何來自麥克風的音訊
+                # 並且我們應該重置靜音/語音塊計數，以確保 Gemini 說完後能正確檢測使用者語音
+                if self.is_gemini_speaking.is_set(): # MODIFIED
+                    if self.sending_audio:
+                        log_queue_gemini.put(f"[AudioLoop] Gemini is speaking, suppressing mic input.") # MODIFIED
+                        self.sending_audio = False
+                    # 重置計數器，以便在 Gemini 停止講話後，VAD 可以重新評估
+                    self.silent_chunks_count = 0 # MODIFIED
+                    self.voice_chunks_count = 0
+                elif energy < ENERGY_THRESHOLD: # MODIFIED
+                    self.silent_chunks_count += 1 # MODIFIED
+                    self.voice_chunks_count = 0 # 重置語音計數 # MODIFIED
+                    if self.silent_chunks_count >= MIN_SILENCE_CHUNKS_TO_STOP_SENDING: # MODIFIED
+                        if self.sending_audio: # MODIFIED
+                            log_queue_gemini.put(f"[AudioLoop] Silence detected (Energy: {energy:.2f}), stopping audio send.") # MODIFIED
+                            self.sending_audio = False # MODIFIED
+                            # await self.out_queue.put(END_OF_TURN_MARKER) # MODIFIED - REMOVED
+                else: # MODIFIED
+                    self.voice_chunks_count += 1 # MODIFIED
+                    self.silent_chunks_count = 0 # 重置靜音計數 # MODIFIED
+                    if not self.sending_audio and self.voice_chunks_count >= MIN_VOICE_CHUNKS_TO_START_SENDING: # MODIFIED
+                        log_queue_gemini.put(f"[AudioLoop] Voice detected (Energy: {energy:.2f}), resuming audio send.") # MODIFIED
+                        self.sending_audio = True # MODIFIED
+                
+                if self.sending_audio: # MODIFIED
+                    await self.out_queue.put({"data": data, "mime_type": "audio/pcm"}) # MODIFIED
+                # 即使不發送，也讓佇列知道有資料，避免可能的阻塞 (如果 out_queue 有大小限制且下游依賴 get) # MODIFIED
+                # 或者，如果下游不依賴固定頻率的 get，則靜音時可以完全不 put # MODIFIED
+
+            if self.audio_stream: # 確保在退出循環後關閉流 # MODIFIED
+                self.audio_stream.close() # MODIFIED
+                
+        except asyncio.CancelledError: # MODIFIED
+            if self.audio_stream: # MODIFIED
+                self.audio_stream.close() # MODIFIED
+            pass # MODIFIED
+        except Exception as e: # MODIFIED
+            if self.audio_stream: # MODIFIED
+                self.audio_stream.close() # MODIFIED
+            log_queue_gemini.put(f"[AudioLoop] Error in listen_audio: {e}") # MODIFIED
+            log_queue_gemini.put(f"[AudioLoop] Full traceback for listen_audio error: {traceback.format_exc()}") # MODIFIED
 
     async def receive_audio(self):
         """接收音訊回應"""
         while self.running:
             try:
                 if not self.session:
+                    log_queue_gemini.put(f"[AudioLoop DEBUG] receive_audio: No session, sleeping.") # MODIFIED
                     await asyncio.sleep(0.1)
                     continue
-                    
+                
+                log_queue_gemini.put(f"[AudioLoop DEBUG] receive_audio: Calling self.session.receive()") # MODIFIED
                 turn = self.session.receive()
+                log_queue_gemini.put(f"[AudioLoop DEBUG] receive_audio: self.session.receive() returned. Type of turn: {type(turn)}") # MODIFIED
+
+                processed_response = False # MODIFIED
                 async for response in turn:
+                    processed_response = True # MODIFIED
+                    log_queue_gemini.put(f"[AudioLoop DEBUG] receive_audio: Got response in turn. Has data: {response.data is not None}, Has text: {response.text is not None}") # MODIFIED
                     if data := response.data:
+                        log_queue_gemini.put(f"[AudioLoop] Received audio data: {len(data)} bytes")# MODIFIED
                         self.audio_in_queue.put_nowait(data)
                         if self.on_audio_received:
                             self.on_audio_received(data)
                         continue
                     if text := response.text:
                         log_queue_gemini.put(f"[AudioLoop] Received text: {text}")
-                        if self.on_text_received:
+                        if self.running and self.on_text_received: # 增加 self.running 檢查
                             self.on_text_received(text)
+                
+                if not processed_response: # MODIFIED
+                    log_queue_gemini.put(f"[AudioLoop DEBUG] receive_audio: No responses iterated in 'turn'.") # MODIFIED
 
                 # 處理中斷情況 - 清空音訊佇列
-                while not self.audio_in_queue.empty():
-                    self.audio_in_queue.get_nowait()
+                # while not self.audio_in_queue.empty(): # MODIFIED
+                #     self.audio_in_queue.get_nowait() # MODIFIED
                     
             except asyncio.CancelledError:
                 break
@@ -656,13 +732,46 @@ class AudioLoop:
             )
             
             while self.running:
-                bytestream = await self.audio_in_queue.get()
-                await asyncio.to_thread(stream.write, bytestream)
-                
+                try:
+                    bytestream = await asyncio.wait_for(self.audio_in_queue.get(), timeout=0.2) # Increased timeout slightly
+                    if not self.is_gemini_speaking.is_set():
+                        self.is_gemini_speaking.set()
+                        log_queue_gemini.put(f"[AudioLoop] Playback started, Gemini speaking event SET.")
+                    
+                    await asyncio.to_thread(stream.write, bytestream)
+                    self.audio_in_queue.task_done()
+
+                except asyncio.TimeoutError:
+                    # This timeout means the audio_in_queue has been empty for a short while.
+                    # If Gemini was speaking, we can assume it has finished.
+                    if self.is_gemini_speaking.is_set():
+                        self.is_gemini_speaking.clear()
+                        log_queue_gemini.put(f"[AudioLoop] Playback queue empty, Gemini speaking event CLEARED.")
+                    continue
+                except asyncio.CancelledError:
+                    log_queue_gemini.put(f"[AudioLoop] play_audio task cancelled.")
+                    if self.is_gemini_speaking.is_set():
+                        self.is_gemini_speaking.clear()
+                    raise
+                except Exception as e:
+                    log_queue_gemini.put(f"[AudioLoop] Error in play_audio inner loop: {e}")
+                    if self.is_gemini_speaking.is_set():
+                        self.is_gemini_speaking.clear()
+                    # Depending on the error, might want to break or continue
+                    break
+            
+            # Final cleanup if loop exits
+            if self.is_gemini_speaking.is_set():
+                self.is_gemini_speaking.clear()
+                log_queue_gemini.put(f"[AudioLoop] Clearing speaking flag on play_audio task exit.")
+
         except asyncio.CancelledError:
-            pass
+            log_queue_gemini.put(f"[AudioLoop] play_audio task fully cancelled (outer).")
+            if self.is_gemini_speaking.is_set(): self.is_gemini_speaking.clear()
+            pass # Propagate cancellation if necessary, or handle
         except Exception as e:
-            log_queue_gemini.put(f"[AudioLoop] Error in play_audio: {e}")
+            log_queue_gemini.put(f"[AudioLoop] Error in play_audio setup or outer exception: {e}")
+            if self.is_gemini_speaking.is_set(): self.is_gemini_speaking.clear()
 
     def _get_frame(self, cap):
         """擷取攝影機畫面"""

@@ -201,7 +201,7 @@ class ControlPanel(QWidget):
         # Response Modality
         advanced_layout.addWidget(QLabel("回應模式:"))
         self.response_mode_combo = QComboBox()
-        self.response_mode_combo.addItems(["僅音訊", "音訊+文字"])
+        self.response_mode_combo.addItems(["僅音訊"])
         advanced_layout.addWidget(self.response_mode_combo)
         
         advanced_layout.addStretch()
@@ -421,9 +421,7 @@ class ControlPanel(QWidget):
 
         # 獲取語音和回應模式設定
         voice_name = self.voice_combo.currentText()
-        response_modalities = ["AUDIO"]
-        if self.response_mode_combo.currentText() == "音訊+文字":
-            response_modalities = ["AUDIO", "TEXT"]
+        response_modalities = ["AUDIO"] # "音訊+文字" 選項已移除，固定為僅音訊
 
         # 定義回調函數
         def on_text_received(text):
