@@ -14,12 +14,12 @@ from PyQt5.QtGui import QImage, QPalette, QPixmap  # Added QPalette
 from PyQt5.QtWidgets import (  # Added QComboBox; Added QSplitter for better layout management and QApplication
     QApplication, QButtonGroup, QComboBox, QGroupBox, QHBoxLayout, QLabel,
     QPushButton, QRadioButton, QSizePolicy, QSplitter, QTextEdit, QVBoxLayout,
-    QWidget)
+    QWidget, QMessageBox)
 
 # from core import start_all_threads # Keep this if start_threads uses it directly
 from core import start_all_threads  # Import stop function too
 from core import stop_all_threads
-from gemini_client import GeminiClient  # Import client for listing models
+from gemini_client import GeminiClient
 from shared_queue import (  # Added gemini log queue; Added gemini queues
     camera_frame_queue, gemini_prompt_queue, gemini_response_queue,
     log_queue_camera, log_queue_gemini, log_queue_reid, log_queue_stream,
@@ -204,6 +204,14 @@ class ControlPanel(QWidget):
         self.response_mode_combo.addItems(["僅音訊"])
         advanced_layout.addWidget(self.response_mode_combo)
         
+        # Microphone Selection (新加的麥克風選擇)
+        advanced_layout.addWidget(QLabel("麥克風:"))
+        self.mic_combo = QComboBox()  # 先建立 QComboBox
+        self.mic_devices = GeminiClient.list_input_devices()
+        for dev in self.mic_devices:
+            self.mic_combo.addItem(dev['name'], dev['index'])
+        advanced_layout.addWidget(self.mic_combo)
+        
         advanced_layout.addStretch()
         live_layout.addLayout(advanced_layout)
 
@@ -260,6 +268,18 @@ class ControlPanel(QWidget):
 
         # Initial state
         self.stop_btn.setEnabled(False)
+
+        # --- Microphone Devices ---
+        self.mic_devices = GeminiClient.list_input_devices()
+        for dev in self.mic_devices:
+            self.mic_combo.addItem(dev['name'], dev['index'])
+
+        # 麥克風狀態標籤
+        self.mic_status_label = QLabel("麥克風狀態：未連接")
+        # 加到適當 layout
+
+        if not self.mic_devices:
+            QMessageBox.warning(self, "麥克風錯誤", "未偵測到任何麥克風裝置，請檢查硬體連線。")
 
 
     def create_log_box(self, title):
@@ -423,6 +443,9 @@ class ControlPanel(QWidget):
         voice_name = self.voice_combo.currentText()
         response_modalities = ["AUDIO"] # "音訊+文字" 選項已移除，固定為僅音訊
 
+        # 麥克風設備索引
+        mic_index = self.mic_combo.currentData()
+
         # 定義回調函數
         def on_text_received(text):
             log_queue_gemini.put(f"[Live] 收到文字: {text}")
@@ -448,7 +471,8 @@ class ControlPanel(QWidget):
                 voice_name=voice_name,
                 response_modalities=response_modalities,
                 on_text_received=on_text_received,
-                on_audio_received=on_audio_received
+                on_audio_received=on_audio_received,
+                mic_index=mic_index
             )
             
             if success:

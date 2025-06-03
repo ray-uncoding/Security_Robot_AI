@@ -177,7 +177,8 @@ class GeminiClient:
     def start_live_session(self, video_mode="none", voice_name="Zephyr",
                           response_modalities=None,
                           on_text_received: Optional[Callable[[str], None]] = None,
-                          on_audio_received: Optional[Callable[[bytes], None]] = None):
+                          on_audio_received: Optional[Callable[[bytes], None]] = None,
+                          mic_index=None):
         """
         啟動 Live 互動模式
         
@@ -277,7 +278,8 @@ class GeminiClient:
                 config=config,
                 video_mode=video_mode,
                 on_text_received=on_text_received,
-                on_audio_received=on_audio_received
+                on_audio_received=on_audio_received,
+                mic_index=mic_index
             )
             log_queue_gemini.put(f"[GeminiClient THREAD_ID:{threading.get_ident()}] New AudioLoop instance created with ID: {id(self.audio_loop)}") # MODIFIED
 
@@ -470,12 +472,24 @@ class GeminiClient:
             "5. 使用 check_api_quota.py 工具來診斷問題"
         )
 
+    @staticmethod
+    def list_input_devices():
+        """回傳所有可用的麥克風裝置清單（index, name）"""
+        p = pyaudio.PyAudio()
+        devices = []
+        for i in range(p.get_device_count()):
+            info = p.get_device_info_by_index(i)
+            if info.get('maxInputChannels', 0) > 0:
+                devices.append({'index': i, 'name': info['name']})
+        p.terminate()
+        return devices
+
 
 class AudioLoop:
     """完全基於 google.genai API 的 AudioLoop 類別"""
     
     def __init__(self, client, config, video_mode="none",
-                 on_text_received=None, on_audio_received=None):
+                 on_text_received=None, on_audio_received=None, mic_index=None):
         log_queue_gemini.put(f"[AudioLoop THREAD_ID:{threading.get_ident()}] __init__ called. Object ID: {id(self)}") # MODIFIED
         self.client = client
         self.config = config
@@ -496,6 +510,7 @@ class AudioLoop:
         self.silent_chunks_count = 0 # MODIFIED
         self.voice_chunks_count = 0 # MODIFIED
         self.is_gemini_speaking = asyncio.Event() # MODIFIED
+        self.mic_index = mic_index
 
     async def run(self):
         """運行主要的 Live session"""
@@ -608,7 +623,10 @@ class AudioLoop:
     async def listen_audio(self):
         """監聽音訊輸入"""
         try:
-            mic_info = self.pya.get_default_input_device_info()
+            if self.mic_index is not None:
+                mic_info = self.pya.get_device_info_by_index(self.mic_index)
+            else:
+                mic_info = self.pya.get_default_input_device_info()
             self.audio_stream = await asyncio.to_thread(
                 self.pya.open,
                 format=FORMAT,
