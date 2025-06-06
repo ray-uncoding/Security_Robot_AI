@@ -1,4 +1,5 @@
 import threading
+import queue  # 補上 queue 匯入
 
 import cv2
 from PyQt5.QtCore import Qt, QTimer  # Added Qt
@@ -6,10 +7,10 @@ from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import (  # Added QComboBox; Added QSplitter for better layout management and QApplication
     QApplication, QComboBox, QGroupBox, QHBoxLayout, QLabel, QPushButton,
     QSizePolicy, QSplitter, QTextEdit, QVBoxLayout, QWidget)
+from AI_api import create_client
 
 # from core import start_all_threads # Keep this if start_threads uses it directly
 from core.core import start_all_threads, stop_all_threads
-from ai.gemini_client import GeminiClient
 from core.shared_queue import (
     camera_frame_queue, gemini_prompt_queue, gemini_response_queue,
     log_queue_camera, log_queue_gemini, log_queue_reid, log_queue_stream,
@@ -87,7 +88,9 @@ class ControlPanel(QWidget):
         model_layout = QHBoxLayout()
         model_layout.addWidget(QLabel("選擇模型:"))
         self.gemini_model_combo = QComboBox()
-        self.gemini_model_combo.addItems(GeminiClient.list_available_models()) # Populate models
+        # 使用 AI_api 統一介面取得模型列表
+        self.gemini_client = create_client()
+        self.gemini_model_combo.addItems(self.gemini_client.list_available_models())
         model_layout.addWidget(self.gemini_model_combo)
         gemini_layout.addLayout(model_layout)
 

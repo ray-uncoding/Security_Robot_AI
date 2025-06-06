@@ -22,7 +22,7 @@ def start_all_threads():
         threading.Thread(target=face_detector_worker, daemon=True, name="worker_face"),
         threading.Thread(target=reid_worker, daemon=True, name="worker_reid"),
         threading.Thread(target=camera_worker, daemon=True, name="worker_camera"),
-        threading.Thread(target=gemini_worker, daemon=True, name="worker_gemini"), # Added Gemini worker thread
+        threading.Thread(target=gemini_worker, daemon=True, name="worker_gemini"), # Gemini worker 直接啟動
     ]
     print("[Core] Starting all threads...")
     for t in threads:
@@ -33,8 +33,4 @@ def stop_all_threads():
     """Sets the stop event to signal threads to terminate."""
     print("[Core] Setting stop event...")
     stop_event.set()
-    # Optional: Join threads if needed, but daemon=True should handle exit
-    # for t in threads:
-    #     t.join(timeout=2) # Add a timeout
-    # print("[Core] All threads joined.")
     threads.clear() # Clear the list after stopping

@@ -1,7 +1,0 @@
-{
-  "name":"camera._connect",
-  "parameters":{
-    "hw_time":"MMDDhhmm[[CC]YY][.ss]",
-    "time_zone":"GTM time zone str"
-	}
-}	
