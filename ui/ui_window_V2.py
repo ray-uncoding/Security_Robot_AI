@@ -19,9 +19,11 @@ from PyQt5.QtWidgets import (  # Added QComboBox; Added QSplitter for better lay
 from AI_api import create_client
 from core.core import start_all_threads, stop_all_threads
 from core.shared_queue import (
-    camera_frame_queue, gemini_prompt_queue, gemini_response_queue,
+    camera_frame_queue, face_result_queue, gemini_prompt_queue, gemini_response_queue,
     log_queue_camera, log_queue_gemini, log_queue_reid, log_queue_stream,
     log_queue_system, stop_event)
+
+
 
 
 class ControlPanel(QWidget):
@@ -72,6 +74,14 @@ class ControlPanel(QWidget):
         self.camera_view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) # Allow expansion
         self.camera_view.setAlignment(Qt.AlignCenter)
         self.camera_view.setStyleSheet("background-color: black; color: white; font-size: 14px; border: 1px solid #555;")
+
+        # --- Camera Display Toggle ---
+        self.display_mode_btn = QPushButton("顯示：有框畫面")
+        self.display_mode_btn.setCheckable(True)
+        self.display_mode_btn.setChecked(True)  # 預設顯示有框
+        self.display_mode_btn.clicked.connect(self.toggle_display_mode)
+        left_layout.addWidget(self.display_mode_btn)
+        self.display_mode_with_box = True  # 狀態旗標
 
         # Log Boxes (Top Row)
         self.log_camera = self.create_log_box("📷 相機訊息")
@@ -284,7 +294,7 @@ class ControlPanel(QWidget):
         if not self.mic_devices:
             QMessageBox.warning(self, "麥克風錯誤", "未偵測到任何麥克風裝置，請檢查硬體連線。")
 
-
+# --- Log Box Configuration ---
     def create_log_box(self, title):
         group = QGroupBox(title)
         log_widget = QTextEdit()
@@ -322,6 +332,7 @@ class ControlPanel(QWidget):
         log_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         return {"group": group, "widget": log_widget}
 
+# --- Thread Control ---
     def start_threads_ui(self):
         # Check using threading.enumerate() or a flag if core doesn't expose threads list
         if not any(t.name.startswith("worker_") and t.is_alive() for t in threading.enumerate()):
@@ -334,7 +345,6 @@ class ControlPanel(QWidget):
             log_queue_system.put("[UI] Start request sent.") # Log from UI perspective
         else:
             log_queue_system.put("[UI] Threads seem to be already running.")
-
 
     def stop_threads_ui(self):
         log_queue_system.put("[UI] Requesting thread stop...")
@@ -350,24 +360,31 @@ class ControlPanel(QWidget):
 
     # --- Consolidated Log Update ---
     def update_all_logs(self):
-        """Updates all log boxes from their respective queues."""
+        """
+        統一更新所有 log box，從各自 queue 取出訊息，並只保留最新 20 行。
+        每個 log box 都獨立管理自己的訊息。
+        """
         log_map = {
             log_queue_camera: self.log_camera["widget"],
             log_queue_stream: self.log_stream["widget"],
             log_queue_reid: self.log_reid["widget"],
             log_queue_system: self.log_system["widget"],
-            log_queue_gemini: self.log_gemini["widget"], # Added Gemini log
+            log_queue_gemini: self.log_gemini["widget"],
         }
         for q, widget in log_map.items():
+            # 取出所有新訊息
+            lines = []
             while not q.empty():
                 try:
-                    msg = q.get_nowait() # Use non-blocking get
-                    widget.append(str(msg)) # Ensure msg is string
-                    widget.verticalScrollBar().setValue(widget.verticalScrollBar().maximum()) # Auto-scroll
-                except queue.Empty:
-                    break # Should not happen with outer check, but safe
-                except Exception as e:
-                    print(f"Error updating log widget {widget.parent().title()}: {e}") # Debug print
+                    lines.append(q.get_nowait())
+                except Exception:
+                    break
+            # 取得目前 UI 上的內容
+            current = widget.toPlainText().splitlines()
+            # 合併，保留最新 20 行
+            all_lines = (current + lines)[-20:]
+            widget.setPlainText("\n".join(all_lines))
+            widget.verticalScrollBar().setValue(widget.verticalScrollBar().maximum())
 
     # --- Gemini Specific Methods ---
     def send_gemini_prompt(self):
@@ -675,8 +692,15 @@ class ControlPanel(QWidget):
             self.last_frame = None  # 初始化紀錄上次畫面
 
         latest_frame = None
-        while not camera_frame_queue.empty():
-            latest_frame = camera_frame_queue.get()
+        
+        # 根據顯示模式選擇 queue
+        if getattr(self, 'display_mode_with_box', True):
+            if not face_result_queue.empty():
+                data = face_result_queue.get()
+                latest_frame = data["frame_with_boxes"]
+        else:
+            if not camera_frame_queue.empty():
+                latest_frame = camera_frame_queue.get()
 
         # 若有新畫面，更新畫面與紀錄
         if latest_frame is not None:
@@ -685,41 +709,46 @@ class ControlPanel(QWidget):
         # 無論有無新畫面，都顯示 last_frame（除非一開始就沒有）
         if self.last_frame is not None:
             try:
+                import cv2
                 rgb_image = cv2.cvtColor(self.last_frame, cv2.COLOR_BGR2RGB)
                 h, w, ch = rgb_image.shape
                 bytes_per_line = ch * w
+                from PyQt5.QtGui import QImage, QPixmap
                 qimg = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
                 # Scale pixmap keeping aspect ratio, fitting within the label's size
                 pixmap = QPixmap.fromImage(qimg).scaled(
-                    self.camera_view.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation) # Use KeepAspectRatio
+                    self.camera_view.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
                 self.camera_view.setPixmap(pixmap)
-                self.camera_view.setAlignment(Qt.AlignCenter) # Center the pixmap
+                self.camera_view.setAlignment(Qt.AlignCenter)
             except Exception as e:
+                from core.shared_queue import log_queue_system
                 log_queue_system.put(f"[UI] Error updating camera view: {e}")
                 self.camera_view.setText("🚫 畫面錯誤")
-        elif not self.stop_btn.isEnabled(): # Only show "No Frame" if system is stopped
-             self.camera_view.setText("🚫 無畫面")
-             self.camera_view.setStyleSheet("background-color: black; color: white; font-size: 14px; border: 1px solid #555;")
-             self.camera_view.setAlignment(Qt.AlignCenter)
+        elif not self.stop_btn.isEnabled():
+            self.camera_view.setText("🚫 無畫面")
+            self.camera_view.setStyleSheet("background-color: black; color: white; font-size: 14px; border: 1px solid #555;")
+            self.camera_view.setAlignment(Qt.AlignCenter)
 
 
-    # Override closeEvent to ensure threads are stopped
     def closeEvent(self, event):
-        """Ensure threads are stopped when the window is closed."""
+        """
+        Qt 框架會在視窗關閉時自動呼叫此方法。
+        用於釋放資源、停止執行緒、確保安全關閉。
+        不需在 __init__ 額外註冊，覆寫即可。
+        """
         log_queue_system.put("[UI] Window close requested. Stopping threads...")
         
-        # 停止 Live 模式
         if self.live_status['active']:
             log_queue_system.put("[UI] Stopping Live mode before closing...")
             self.stop_live_mode()
         
         self.stop_threads_ui()
-        # Give threads a moment to stop (optional, daemon threads should exit anyway)
-        # time.sleep(0.5)
-        event.accept() # Accept the close event
+        event.accept()
 
-    # Removed individual update_log_* methods as they are replaced by update_all_logs
-    # def update_log_camera(self): ...
-    # def update_log_stream(self): ...
-    # def update_log_reid(self): ...
-    # def update_log_system(self): ...
+    def toggle_display_mode(self):
+        if self.display_mode_btn.isChecked():
+            self.display_mode_with_box = True
+            self.display_mode_btn.setText("顯示：有框畫面")
+        else:
+            self.display_mode_with_box = False
+            self.display_mode_btn.setText("顯示：無框畫面")

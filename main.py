@@ -1,9 +1,11 @@
 import os
-os.environ["GOOGLE_API_KEY"] = "AIzaSyDSLAh4j-7B9l17JUEtbYbUIKN1jW_Q_SM "  # TODO: 請填入你的實際金鑰
+# $env:GOOGLE_API_KEY="YOUR_KEY"; python main.py 
 
 from core.core import stop_all_threads
 from ui.ui import launch_ui
+from memory_profiler import profile
 
+@profile
 def main():
     try:
         launch_ui()
