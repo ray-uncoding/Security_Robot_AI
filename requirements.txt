@@ -9,3 +9,4 @@ ultralytics
 requests
 websocket-client
 torchreid
+aiohttp
