@@ -1,0 +1,59 @@
+{
+  "connect": {
+    "name": "camera._connect",
+    "parameters": {
+      "hw_time": "{hw_time}",
+      "time_zone": "GMT+8"
+    }
+  },
+  "start_preview": {
+    "name": "camera._startPreview",
+    "parameters": {
+      "origin": {
+        "mime": "h264",
+        "width": 1920,
+        "height": 1440,
+        "framerate": 30,
+        "bitrate": 20480
+      },
+      "stiching": {
+        "mode": "pano",
+        "mime": "h264",
+        "width": 3840,
+        "height": 1920,
+        "framerate": 30,
+        "bitrate": 10240
+      }
+    },
+    "stabilization": true
+  },
+  "take_picture": {
+    "name": "camera._takePicture",
+    "parameters": {
+      "origin": {
+        "mime": "jpeg",
+        "width": 4000,
+        "height": 3000,
+        "saveOrigin": true,
+        "storage_loc": 1
+      },
+      "stiching": {
+        "mode": "pano",
+        "mime": "jpeg",
+        "width": 7680,
+        "height": 3840,
+        "map": "equirectangular",
+        "algorithm": "normal"
+      }
+    }
+  },
+  "stop_preview": {
+    "name": "camera._stopPreview"
+  },
+  "get_result": {
+    "name": "camera._getResult",
+    "parameters": {
+      "list_ids": ["{sequence}"]
+    }
+  }
+}

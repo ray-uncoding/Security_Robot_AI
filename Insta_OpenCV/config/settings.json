@@ -1,0 +1,13 @@
+{
+    "insta_ip": "192.168.1.188",
+    "http_port": 20000,
+    "fingerprint": "N0E2oBzUCP0=",
+    "heartbeat_interval": 1,
+    "preview_mode": "rtmp",
+    "review_allowed_ip": "192.168.1.101",
+    "rtmp_url": "rtmp://192.168.1.188:1935/live/preview",
+    "resolution": "3840x1920",
+    "bitrate": 10240000,
+    "framerate": 30,
+    "record_audio": true
+}
