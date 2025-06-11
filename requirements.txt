@@ -1,0 +1,11 @@
+opencv-python
+memory_profiler
+torch
+torchvision
+numpy
+scikit-learn
+PyQt5
+ultralytics
+requests
+websocket-client
+torchreid
