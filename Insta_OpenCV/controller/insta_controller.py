@@ -1,13 +1,18 @@
 # controller/insta_controller.py
 
-import aiohttp
-import json
 import os
+import sys
+import json
+import asyncio
+import threading
+import subprocess
+import aiohttp
+import datetime
+import psutil
+import nest_asyncio  # 新增，支援巢狀事件循環
 from ..utils.config_loader import load_settings, save_settings
 from ..utils.frame_receiver import FrameReceiver
 from ..services.heartbeat import HeartbeatService
-import threading
-import asyncio
 
 class InstaController:
     """
@@ -36,7 +41,6 @@ class InstaController:
 
     async def connect(self):
         """建立與相機的會話連線，取得 fingerprint"""
-        import datetime
         url = f"{self.base_url}/commands/execute"
         now = datetime.datetime.now(datetime.timezone.utc)
         hw_time = now.strftime("%m%d%H%M%Y.%S")
@@ -112,7 +116,6 @@ class InstaController:
         payload = json.loads(json.dumps(self.api_payloads["get_result"]))
         payload["parameters"]["list_ids"] = [sequence]
         url = f"{self.base_url}/commands/execute"
-        import asyncio
         for _ in range(20):
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=payload, headers=self._get_headers()) as resp:
@@ -141,7 +144,83 @@ class InstaController:
         await self.connect()
         await self.start_preview()
 
-    def get_stream_url(self) -> str:
-        """動態組合 RTMP 預覽串流網址 (官方格式)"""
-        ip = self.settings.get("insta_ip", "127.0.0.1")
-        return f"rtmp://{ip}:1935/live/preview"
+    async def start_live(self):
+        """啟動 origin live 六路魚眼 RTMP 串流，啟動前自動開啟 nginx"""
+        # 啟動 nginx（若尚未啟動）
+        nginx_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../nginx 1.7.11.3 Gryphon/nginx.exe'))
+        try:
+            # Windows: 只啟動一次，不重複開啟
+            nginx_running = any('nginx.exe' in p.name().lower() for p in psutil.process_iter())
+            if not nginx_running:
+                subprocess.Popen([nginx_path], creationflags=subprocess.CREATE_NEW_CONSOLE)
+        except Exception as e:
+            print(f"[start_live] 啟動 nginx 失敗: {e}")
+        if not self.fingerprint:
+            raise RuntimeError("尚未取得 fingerprint，請先 connect()")
+        payload = self.api_payloads["start_live"]
+        cmd_url = f"{self.base_url}/commands/execute"
+        async with aiohttp.ClientSession() as session:
+            async with session.post(cmd_url, json=payload, headers=self._get_headers()) as resp:
+                try:
+                    resp_data = await resp.json(content_type=None)
+                except Exception as e:
+                    text = await resp.text()
+                    try:
+                        text_json = json.loads(text)
+                        text = json.dumps(text_json, indent=2, ensure_ascii=False)
+                    except Exception:
+                        pass
+                    print(f"[start_live] 無法解析 JSON，HTTP狀態: {resp.status}, 內容如下:\n{text}")
+                    raise RuntimeError(f"start_live 失敗: {e}, HTTP狀態: {resp.status}, 內容: {text}")
+                if resp_data.get("state") != "done":
+                    print(f"start_live 回傳異常: {json.dumps(resp_data, indent=2, ensure_ascii=False)}")
+
+    def stop_live_sync(self):
+        """同步呼叫 stop_live (for worker, 支援已存在事件循環)"""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            nest_asyncio.apply()
+            fut = asyncio.ensure_future(self.stop_live())
+            loop.run_until_complete(fut)
+        else:
+            asyncio.run(self.stop_live())
+
+    def stop_preview_sync(self):
+        """同步呼叫 stop_preview (for worker, 支援已存在事件循環)"""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop and loop.is_running():
+            nest_asyncio.apply()
+            fut = asyncio.ensure_future(self.stop_preview())
+            loop.run_until_complete(fut)
+        else:
+            asyncio.run(self.stop_preview())
+
+    async def stop_live(self):
+        """停止 origin live 串流，並嘗試關閉 nginx 服務（僅 Windows）"""
+        if not self.fingerprint:
+            return
+        payload = self.api_payloads["stop_live"]
+        url = f"{self.base_url}/commands/execute"
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, headers=self._get_headers()) as resp:
+                data = await resp.json(content_type=None)
+                if data.get("state") != "done":
+                    raise RuntimeError(f"stop_live 失敗: {data}")
+        # 關閉 nginx
+        try:
+            for p in psutil.process_iter():
+                if 'nginx.exe' in p.name().lower():
+                    p.terminate()
+                    try:
+                        p.wait(timeout=3)
+                    except Exception:
+                        p.kill()
+                    print("[stop_live] nginx.exe 已關閉")
+        except Exception as e:
+            print(f"[stop_live] 關閉 nginx 失敗: {e}")

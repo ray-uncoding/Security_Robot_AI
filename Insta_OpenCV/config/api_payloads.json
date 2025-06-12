@@ -55,5 +55,24 @@
     "parameters": {
       "list_ids": ["{sequence}"]
     }
+  },
+  "start_live": {
+    "name": "camera._startLive",
+    "parameters": {
+      "origin": {
+        "mime": "h264",
+        "width": 3840,
+        "height": 2880,
+        "framerate": 30,
+        "bitrate": 20000,
+        "logMode": 0,
+        "liveUrl": "rtmp://192.168.1.188:1935/live",
+        "saveOrigin": false
+      }
+    },
+    "stabilization": false
+  },
+  "stop_live": {
+    "name": "camera._stopLive"
   }
 }
