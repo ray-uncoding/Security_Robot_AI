@@ -10,3 +10,8 @@ requests
 websocket-client
 torchreid
 aiohttp
+google-generativeai
+google-genai
+pyaudio
+pillow
+mss
