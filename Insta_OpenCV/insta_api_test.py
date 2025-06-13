@@ -1,33 +1,37 @@
-# insta_api_test.py
-# 單獨測試 InstaController API 功能
 import cv2
 import time
-from src.insta360cam.api import InstaWorker
+from Insta_OpenCV.controller.insta_worker import InstaWorker
+from Insta_OpenCV.utils.frame_receiver import FrameReceiver
+
 
 def main():
     print("[TEST] Init InstaWorker ...")
     worker = InstaWorker()
-    ready_event = worker.start_all()
+    ready_event = worker.start_live_all()
     print("[TEST] Waiting for worker to be ready...")
-    ready_event.wait()  # 等待 RTMP/心跳/FrameReceiver 都 ready
-    print("[TEST] Worker ready! Start OpenCV preview...")
-    while True:
-        frame = worker.get_latest_frame()
-        if frame is not None:
-            max_width = 1280
-            if frame.shape[1] > max_width:
-                scale = max_width / frame.shape[1]
-                frame = cv2.resize(frame, (max_width, int(frame.shape[0] * scale)))
-            cv2.imshow('RTMP Preview', frame)
+    ready_event.wait()
+    print("[TEST] Worker ready! 等待推流穩定...")
+    time.sleep(10)  # 等待推流穩定時間拉長到10秒
+
+    cam_ids = [1, 5, 3]
+    default_params = {'fx': 100, 'fy': 350, 'cx': 120, 'cy': 160, 'd0': 0.15, 'd1': 0.15}
+    receiver = FrameReceiver(cam_ids, 240, 320, default_params)
+    receiver.start()
+    receiver.enable_trackbar('Cameras 1 5 3')
+    cv2.namedWindow('Cameras 1 5 3', cv2.WINDOW_AUTOSIZE)  # 設為不可調整大小
+
+    try:
+        while True:
+            receiver.update_params_from_trackbar()
+            grid = receiver.get_grid_frame()
+            cv2.imshow('Cameras 1 5 3', grid)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
-        else:
-            print("[TEST] No frame yet, waiting...")
-            time.sleep(0.1)
-    cv2.destroyAllWindows()
-    print("[TEST] RTMP preview ended, stopping all...")
-    worker.stop_all()
-    print("[TEST] stop_all done!")
+    finally:
+        receiver.stop()
+        cv2.destroyAllWindows()
+        worker.stop_all()
+        print('[TEST] stop_all done!')
 
 if __name__ == "__main__":
     main()
