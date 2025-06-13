@@ -44,7 +44,7 @@ def camera_process(cam_id, width, height, frame_dict, param_dict):
             '-c:v', 'h264_cuvid',
             '-fflags', 'nobuffer',
             '-flags', 'low_delay',
-            '-threads', '2',
+            '-threads', '1', # Changed from 2 to 1
             '-analyzeduration', '1000000',
             '-probesize', '1000000',
             '-i', url,
@@ -65,7 +65,7 @@ def camera_process(cam_id, width, height, frame_dict, param_dict):
             '-c:v', 'h264_cuvid',
             '-fflags', 'nobuffer',
             '-flags', 'low_delay',
-            '-threads', '2',
+            '-threads', '1', # Changed from 2 to 1
             '-analyzeduration', '1000000',
             '-probesize', '1000000',
             '-i', url,
