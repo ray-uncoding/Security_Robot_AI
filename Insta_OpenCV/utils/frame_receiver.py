@@ -80,7 +80,7 @@ def camera_process(cam_id, width, height, frame_dict, param_dict):
     # ... (rest of the function, including stderr reading, process creation) ...
     # ... (Python-side rotation for live mode and undistortion logic remains the same) ...
     import subprocess # ensure subprocess is imported
-    import queue # ensure queue is imported
+    import queue # ensure queue is imported 
     def read_stderr(pipe, q):
         while True:
             line = pipe.stderr.readline()
