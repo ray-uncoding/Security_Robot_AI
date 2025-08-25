@@ -38,7 +38,7 @@ def camera_process(cam_id, width, height, frame_dict, param_dict):
         url = f'rtmp://192.168.1.188:1935/live/origin{cam_id}'
         # Using h264_cuvid for decode and scale_cuda for GPU scale, then hwdownload
         ffmpeg_cmd = [
-            './ffmpeg-master-latest-win64-gpl-shared/bin/ffmpeg.exe',
+            'ffmpeg',
             '-hwaccel', 'cuda',
             '-hwaccel_output_format', 'cuda', # Keep frames in GPU memory
             '-c:v', 'h264_cuvid',
@@ -59,7 +59,7 @@ def camera_process(cam_id, width, height, frame_dict, param_dict):
         url = get_preview_url()
         # Using h264_cuvid for decode and scale_cuda for GPU scale, then hwdownload
         ffmpeg_cmd = [
-            './ffmpeg-master-latest-win64-gpl-shared/bin/ffmpeg.exe',
+            'ffmpeg',
             '-hwaccel', 'cuda',
             '-hwaccel_output_format', 'cuda', # Keep frames in GPU memory
             '-c:v', 'h264_cuvid',
