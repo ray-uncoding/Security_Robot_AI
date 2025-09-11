@@ -5,7 +5,8 @@ import cv2
 import json
 import time
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTextEdit
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import QTimer, Qt, QPoint
+from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtGui import QImage, QPixmap
 from pydantic import BaseModel
 import google.generativeai as genai
@@ -72,6 +73,63 @@ def crop_center_gpu(frame, crop_percentage=0.3):
         start_x = int(w * (1 - crop_percentage) / 2)
         end_x = int(w * (1 + crop_percentage) / 2)
         return frame[start_y:end_y, start_x:end_x]
+
+class ROIPreviewWindow(QWidget):
+    """ROI區域高畫質預覽視窗"""
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle('ROI 高畫質預覽')
+        self.setFixedSize(600, 400)
+        
+        # 移動到主視窗右側
+        self.move(850, 100)
+        
+        self.preview_label = QLabel()
+        self.preview_label.setAlignment(Qt.AlignCenter)
+        self.preview_label.setStyleSheet("border: 2px solid blue; background-color: #f0f0f0;")
+        self.preview_label.setText("選擇ROI區域後\n將顯示高畫質預覽")
+        
+        self.info_label = QLabel("尚未選擇區域")
+        self.info_label.setAlignment(Qt.AlignCenter)
+        self.info_label.setStyleSheet("color: #666; font-size: 12px;")
+        
+        layout = QVBoxLayout()
+        layout.addWidget(self.preview_label, 1)
+        layout.addWidget(self.info_label, 0)
+        self.setLayout(layout)
+        
+    def update_preview(self, roi_frame):
+        """更新ROI預覽影像"""
+        if roi_frame is not None and roi_frame.size > 0:
+            # 計算適合視窗的縮放尺寸
+            preview_w = self.preview_label.width() - 10
+            preview_h = self.preview_label.height() - 10
+            
+            h, w = roi_frame.shape[:2]
+            scale = min(preview_w / w, preview_h / h)
+            new_w = int(w * scale)
+            new_h = int(h * scale)
+            
+            # 縮放ROI影像
+            resized_roi = cv2.resize(roi_frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+            
+            # 轉換為Qt格式
+            rgb_image = cv2.cvtColor(resized_roi, cv2.COLOR_BGR2RGB)
+            qt_image = QImage(rgb_image.data, new_w, new_h, new_w * 3, QImage.Format_RGB888)
+            pixmap = QPixmap.fromImage(qt_image)
+            
+            self.preview_label.setPixmap(pixmap)
+            self.info_label.setText(f"ROI解析度: {w}x{h} | 預覽: {new_w}x{new_h}")
+        else:
+            self.preview_label.clear()
+            self.preview_label.setText("選擇ROI區域後\n將顯示高畫質預覽")
+            self.info_label.setText("尚未選擇區域")
+    
+    def clear_preview(self):
+        """清除預覽"""
+        self.preview_label.clear()
+        self.preview_label.setText("選擇ROI區域後\n將顯示高畫質預覽")
+        self.info_label.setText("尚未選擇區域")
 
 class CameraWidget(QWidget):
     def __init__(self):
@@ -151,36 +209,85 @@ class CameraWidget(QWidget):
         # 性能優化變數
         self._frame_count = 0
         self._skip_frames = 0  # 幀跳過計數器
+        
+        # 創建ROI預覽視窗
+        self.roi_preview = ROIPreviewWindow()
+        self.roi_preview.hide()  # 初始隱藏
 
     def eventFilter(self, obj, event):
         """處理圖像標籤上的鼠標事件來實現ROI選擇"""
-        if obj == self.image_label:
+        if obj == self.image_label and hasattr(self, 'current_frame') and self.current_frame is not None:
+            # 獲取當前影像和標籤的尺寸信息
+            if not hasattr(self, 'display_scale'):
+                return super().eventFilter(obj, event)
+                
             if event.type() == event.MouseButtonPress:
                 if event.button() == Qt.LeftButton:
-                    # 開始選擇ROI
-                    self.roi_start = event.pos()
-                    self.roi_selecting = True
-                    self.roi_selected = False
+                    # 轉換鼠標座標到影像座標
+                    mouse_pos = self.convert_mouse_to_image_coords(event.pos())
+                    if mouse_pos:
+                        self.roi_start = mouse_pos
+                        self.roi_selecting = True
+                        self.roi_selected = False
+                        print(f"[ROI] Start selection at: {mouse_pos}")
                     return True
                     
             elif event.type() == event.MouseMove:
                 if self.roi_selecting and self.roi_start:
-                    # 更新ROI選擇
-                    self.roi_end = event.pos()
-                    self.update_roi_overlay()
+                    # 轉換鼠標座標到影像座標
+                    mouse_pos = self.convert_mouse_to_image_coords(event.pos())
+                    if mouse_pos:
+                        self.roi_end = mouse_pos
+                        # 即時更新預覽
+                        self.update_roi_preview()
                     return True
                     
             elif event.type() == event.MouseButtonRelease:
                 if event.button() == Qt.LeftButton and self.roi_selecting:
-                    # 完成ROI選擇
-                    self.roi_end = event.pos()
-                    self.roi_selecting = False
-                    self.roi_selected = True
-                    self.update_roi_overlay()
-                    print(f"[ROI] Selected region: {self.roi_start} to {self.roi_end}")
+                    # 轉換鼠標座標到影像座標
+                    mouse_pos = self.convert_mouse_to_image_coords(event.pos())
+                    if mouse_pos:
+                        self.roi_end = mouse_pos
+                        self.roi_selecting = False
+                        self.roi_selected = True
+                        # 顯示並更新預覽視窗
+                        self.roi_preview.show()
+                        self.update_roi_preview()
+                        print(f"[ROI] Selection completed: {self.roi_start} to {self.roi_end}")
                     return True
                     
         return super().eventFilter(obj, event)
+    
+    def convert_mouse_to_image_coords(self, mouse_pos):
+        """將鼠標座標轉換為顯示影像座標"""
+        if not hasattr(self, 'display_scale') or not hasattr(self, 'current_frame'):
+            return None
+            
+        # 獲取標籤和影像尺寸
+        label_w = self.image_label.width()
+        label_h = self.image_label.height()
+        
+        img_h, img_w = self.current_frame.shape[:2]
+        scale = min(label_w / img_w, label_h / img_h)
+        new_w = int(img_w * scale)
+        new_h = int(img_h * scale)
+        
+        # 計算影像在標籤中的偏移
+        offset_x = (label_w - new_w) // 2
+        offset_y = (label_h - new_h) // 2
+        
+        # 轉換鼠標座標到影像座標
+        img_x = mouse_pos.x() - offset_x
+        img_y = mouse_pos.y() - offset_y
+        
+        # 檢查是否在影像範圍內
+        if 0 <= img_x <= new_w and 0 <= img_y <= new_h:
+            # 創建 QPoint 物件返回
+            from PyQt5.QtCore import QPoint
+            return QPoint(img_x, img_y)
+        else:
+            print(f"[ROI] Mouse outside image bounds: ({img_x}, {img_y})")
+            return None
 
     def toggle_roi_mode(self):
         """切換ROI選擇模式"""
@@ -198,13 +305,16 @@ class CameraWidget(QWidget):
         self.roi_selected = False
         self.roi_rect = None
         self.roi_btn.setText('選擇辨識區域 (拖拽框選)')
+        # 隱藏並清除預覽視窗
+        self.roi_preview.hide()
+        self.roi_preview.clear_preview()
         print("[ROI] ROI selection cleared.")
         
-    def update_roi_overlay(self):
-        """更新ROI覆蓋層顯示"""
+    def update_roi_preview(self):
+        """更新ROI預覽視窗"""
         if self.roi_start and self.roi_end and self.current_frame is not None:
-            # 這裡可以在下次影像更新時繪製ROI框
-            pass
+            roi_frame = self.extract_roi_from_original()
+            self.roi_preview.update_preview(roi_frame)
 
     def update_frame(self):
         # 移除幀跳過機制以減少延遲
@@ -244,15 +354,21 @@ class CameraWidget(QWidget):
                 
                 # 如果有ROI選擇，繪製選擇框
                 if self.roi_selected and self.roi_start and self.roi_end:
-                    # 計算在縮放後圖像上的ROI座標
+                    # 在縮放後的影像上繪製ROI框
                     x1 = min(self.roi_start.x(), self.roi_end.x())
                     y1 = min(self.roi_start.y(), self.roi_end.y())
                     x2 = max(self.roi_start.x(), self.roi_end.x())
                     y2 = max(self.roi_start.y(), self.roi_end.y())
                     
+                    # 確保座標在影像範圍內
+                    x1 = max(0, min(x1, new_w))
+                    y1 = max(0, min(y1, new_h))
+                    x2 = max(0, min(x2, new_w))
+                    y2 = max(0, min(y2, new_h))
+                    
                     # 繪製ROI框
                     cv2.rectangle(display_frame, (x1, y1), (x2, y2), (0, 255, 0), 3)
-                    cv2.putText(display_frame, "OCR Region", (x1, y1-10), 
+                    cv2.putText(display_frame, "OCR Region", (x1, max(y1-10, 15)), 
                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
                 elif self.roi_selecting and self.roi_start and self.roi_end:
                     # 正在選擇時繪製半透明框
@@ -260,6 +376,12 @@ class CameraWidget(QWidget):
                     y1 = min(self.roi_start.y(), self.roi_end.y())
                     x2 = max(self.roi_start.x(), self.roi_end.x())
                     y2 = max(self.roi_start.y(), self.roi_end.y())
+                    
+                    # 確保座標在影像範圍內
+                    x1 = max(0, min(x1, new_w))
+                    y1 = max(0, min(y1, new_h))
+                    x2 = max(0, min(x2, new_w))
+                    y2 = max(0, min(y2, new_h))
                     
                     # 繪製選擇中的框
                     cv2.rectangle(display_frame, (x1, y1), (x2, y2), (255, 255, 0), 2)
@@ -374,11 +496,11 @@ class CameraWidget(QWidget):
         if not (self.roi_selected and self.roi_start and self.roi_end and hasattr(self, 'display_scale')):
             return None
             
-        # 計算原始影像中的ROI座標
-        x1 = min(self.roi_start.x(), self.roi_end.x()) - getattr(self, 'display_offset_x', 0)
-        y1 = min(self.roi_start.y(), self.roi_end.y()) - getattr(self, 'display_offset_y', 0)
-        x2 = max(self.roi_start.x(), self.roi_end.x()) - getattr(self, 'display_offset_x', 0)
-        y2 = max(self.roi_start.y(), self.roi_end.y()) - getattr(self, 'display_offset_y', 0)
+        # 獲取顯示影像的座標
+        x1 = min(self.roi_start.x(), self.roi_end.x())
+        y1 = min(self.roi_start.y(), self.roi_end.y())
+        x2 = max(self.roi_start.x(), self.roi_end.x())
+        y2 = max(self.roi_start.y(), self.roi_end.y())
         
         # 轉換回原始影像座標
         orig_x1 = int(x1 / self.display_scale)
@@ -401,7 +523,9 @@ class CameraWidget(QWidget):
         # 提取ROI區域
         roi_frame = self.current_frame[orig_y1:orig_y2, orig_x1:orig_x2]
         
-        print(f"[ROI] Extracted region: ({orig_x1},{orig_y1}) to ({orig_x2},{orig_y2}), size: {roi_frame.shape}")
+        print(f"[ROI] Display coords: ({x1},{y1}) to ({x2},{y2})")
+        print(f"[ROI] Original coords: ({orig_x1},{orig_y1}) to ({orig_x2},{orig_y2})")
+        print(f"[ROI] Extracted size: {roi_frame.shape}")
         
         return roi_frame
 
@@ -410,6 +534,9 @@ class CameraWidget(QWidget):
         self.timer.stop()
         self.receiver.stop()
         self.worker.stop_all()
+        # 關閉ROI預覽視窗
+        if hasattr(self, 'roi_preview'):
+            self.roi_preview.close()
         print('[INFO] All stopped.')
         event.accept()
 

@@ -7,6 +7,13 @@ import threading
 import psutil
 import os
 import json
+import logging
+from .gpu_processor import GPUProcessor
+from ..services.performance_monitor import get_global_performance_monitor, FrameRateController
+
+# 設定日誌
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def nothing(x):
@@ -205,6 +212,14 @@ def camera_process(cam_id, stream_url, width, height, frame_dict, param_dict):
 class FrameReceiver:
     def __init__(self, stream_url=None, cam_ids=None, width=240, height=320, params=None):
         self.stream_url = stream_url
+        # 初始化 GPU 處理器
+        self.gpu_processor = GPUProcessor()
+        logger.info(f"[FrameReceiver] GPU available: {self.gpu_processor.is_gpu_available()}")
+        
+        # 初始化性能監控
+        self.performance_monitor = get_global_performance_monitor()
+        self.frame_rate_controller = FrameRateController(target_fps=60.0)
+        
         # If a specific stream_url is provided, force single-camera preview mode.
         if self.stream_url:
             cam_ids = [0]
@@ -240,6 +255,10 @@ class FrameReceiver:
             p.start()
             self._processes.append(p)
         self._running = True
+        
+        # 啟動性能監控
+        self.performance_monitor.start_monitoring()
+        logger.info("[FrameReceiver] Started with performance monitoring")
 
     def stop(self):
         for p in self._processes:
@@ -247,11 +266,91 @@ class FrameReceiver:
             p.join()
         self._processes = []
         self._running = False
+        
+        # 停止性能監控
+        self.performance_monitor.stop_monitoring()
+        logger.info("[FrameReceiver] Stopped")
 
     def get_latest_frame(self):
+        """獲取最新影像幀"""
+        frame = None
         if len(self.cam_ids) == 1:
-            return self._frame_dict.get(self.cam_ids[0], None)
-        raise RuntimeError('Use get_grid_frame() for multi-cam mode')
+            frame = self._frame_dict.get(self.cam_ids[0], None)
+        else:
+            raise RuntimeError('Use get_grid_frame() for multi-cam mode')
+        
+        # 記錄性能指標
+        if frame is not None:
+            self.performance_monitor.record_frame()
+        
+        return frame
+    
+    def get_latest_frame_processed(self, target_width=None, target_height=None, enhance_quality=False):
+        """
+        獲取 GPU 處理後的最新影像幀
+        
+        Args:
+            target_width: 目標寬度（可選）
+            target_height: 目標高度（可選）
+            enhance_quality: 是否進行品質增強
+            
+        Returns:
+            處理後的影像幀
+        """
+        start_time = time.time()
+        
+        frame = self.get_latest_frame()
+        if frame is None:
+            return None
+        
+        # 品質增強
+        if enhance_quality:
+            frame = self.gpu_processor.enhance_frame_quality(frame)
+        
+        # 縮放處理
+        if target_width and target_height:
+            frame = self.gpu_processor.resize_frame(frame, target_width, target_height)
+        
+        # 記錄處理時間
+        processing_time = time.time() - start_time
+        self.performance_monitor.record_processing_time(processing_time)
+        
+        return frame
+    
+    def get_roi_from_frame(self, x, y, width, height, enhance_quality=False):
+        """
+        從最新幀中提取 ROI 區域（GPU 加速）
+        
+        Args:
+            x, y: ROI 起始座標
+            width, height: ROI 尺寸
+            enhance_quality: 是否進行品質增強
+            
+        Returns:
+            ROI 影像
+        """
+        frame = self.get_latest_frame()
+        if frame is None:
+            return None
+        
+        # 確保座標在有效範圍內
+        h, w = frame.shape[:2]
+        x = max(0, min(x, w - 1))
+        y = max(0, min(y, h - 1))
+        width = min(width, w - x)
+        height = min(height, h - y)
+        
+        if width <= 0 or height <= 0:
+            return None
+        
+        # GPU 加速裁剪
+        roi_frame = self.gpu_processor.crop_frame(frame, x, y, width, height)
+        
+        # 品質增強
+        if enhance_quality:
+            roi_frame = self.gpu_processor.enhance_frame_quality(roi_frame)
+        
+        return roi_frame
 
     def get_grid_frame(self):
         stream_mode = get_stream_mode()
@@ -320,3 +419,23 @@ class FrameReceiver:
         d1 = (cv2.getTrackbarPos('d1', wn) - 100) / 200.0
         params = {'fx': fx, 'fy': fy, 'cx': cx, 'cy': cy, 'd0': d0, 'd1': d1}
         self.set_params(params)
+    
+    def get_gpu_info(self):
+        """獲取 GPU 處理器資訊"""
+        return self.gpu_processor.get_gpu_info()
+    
+    def is_gpu_available(self):
+        """檢查 GPU 是否可用"""
+        return self.gpu_processor.is_gpu_available()
+    
+    def get_performance_summary(self):
+        """獲取性能摘要"""
+        return self.performance_monitor.get_performance_summary()
+    
+    def get_performance_metrics(self):
+        """獲取詳細性能指標"""
+        return self.performance_monitor.get_metrics()
+    
+    def set_target_fps(self, fps: float):
+        """設定目標幀率"""
+        self.frame_rate_controller.set_target_fps(fps)
