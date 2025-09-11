@@ -11,8 +11,9 @@ class InstaWorker:
     高階 Insta360 控制協調器，負責自動管理 InstaController、心跳等生命週期。
     UI/測試端只需調用 InstaWorker 高階 API。
     """
-    def __init__(self):
-        self.controller = InstaController()
+    def __init__(self, ip_address="192.168.1.1"):
+        # When creating the controller, pass the IP so it knows where to connect
+        self.controller = InstaController(ip_address=ip_address)
         self.heartbeat = None
         self._ready_event = threading.Event()
         self._loop = None
@@ -42,48 +43,33 @@ class InstaWorker:
 
     def _start_async(self):
         asyncio.set_event_loop(self._loop)
-        if getattr(self, '_mode', None) == 'live':
-            self._loop.run_until_complete(self._async_start_live())
-        else:
-            self._loop.run_until_complete(self._async_start_preview())
+        # Connect first, then decide which stream to start
+        self._loop.run_until_complete(self._async_connect_and_start())
 
-    async def _async_start_preview(self):
-        await self.controller.connect()
-        self.heartbeat = HeartbeatService(self.controller)
-        heartbeat_task = asyncio.create_task(self.heartbeat.run())
-        await self.controller.start_preview()
-        # 不再驗證 RTMP stream
-        self._ready_event.set()
-        await heartbeat_task
+    async def _async_connect_and_start(self):
+        """Helper to connect, start heartbeat, and then start the selected stream."""
+        try:
+            # Connect to the camera and initialize the session
+            await self.controller.connect()
+            
+            # Start the heartbeat to keep the connection alive
+            self.heartbeat = HeartbeatService(self.controller)
+            heartbeat_task = asyncio.create_task(self.heartbeat.run())
 
-    async def _async_start_live(self):
-        await self.controller.connect()
-        self.heartbeat = HeartbeatService(self.controller)
-        heartbeat_task = asyncio.create_task(self.heartbeat.run())
-        # 確認 nginx 是否啟動，若未啟動則嘗試啟動並等待啟動完成
-        import psutil, os, time, subprocess
-        nginx_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../nginx 1.7.11.3 Gryphon/nginx.exe'))
-        nginx_cwd = os.path.dirname(nginx_path)
-        nginx_running = any('nginx.exe' in p.name().lower() for p in psutil.process_iter())
-        if not nginx_running:
-            try:
-                subprocess.Popen([nginx_path], cwd=nginx_cwd, creationflags=subprocess.CREATE_NEW_CONSOLE)
-                print('[Worker] nginx.exe 啟動中...')
-                # 等待 nginx 啟動成功
-                for _ in range(10):
-                    time.sleep(1)
-                    nginx_running = any('nginx.exe' in p.name().lower() for p in psutil.process_iter())
-                    if nginx_running:
-                        print('[Worker] nginx.exe 啟動成功')
-                        break
-                else:
-                    print('[Worker] nginx.exe 啟動失敗，請檢查路徑與權限')
-            except Exception as e:
-                print(f'[Worker] 啟動 nginx 失敗: {e}')
-        await self.controller.start_live()
-        # 不再驗證 RTMP stream
-        self._ready_event.set()
-        await heartbeat_task
+            # Start the appropriate stream based on the mode
+            if getattr(self, '_mode', None) == 'live':
+                await self.controller.start_live()
+            else:
+                await self.controller.start_preview()
+            
+            # Signal that the worker is ready
+            self._ready_event.set()
+            
+            # Keep the heartbeat running
+            await heartbeat_task
+        except Exception as e:
+            print(f"[Worker] Critical error in async startup: {e}")
+            self._ready_event.set() # Signal ready anyway to prevent blocking, but with an error
 
     def stop_all(self):
         """
@@ -100,3 +86,4 @@ class InstaWorker:
                     self.controller.stop_live_sync()
         except Exception as e:
             print(f"[Worker] stop_all: stop_preview/stop_live failed: {e}")
+

@@ -1,3 +1,10 @@
+import sys
+import os
+# 把專案根加入搜尋路徑（使 Insta_OpenCV 可被 import）
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import cv2
 import time
 from Insta_OpenCV.controller.insta_worker import InstaWorker

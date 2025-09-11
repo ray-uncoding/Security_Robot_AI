@@ -1,15 +1,15 @@
-# memory_profiler
+memory_profiler
 numpy
-# scikit-learn
-# ultralytics
+scikit-learn
+ultralytics
 requests
-# websocket-client
-# torchreid
+websocket-client
+torchreid
 aiohttp
-# google-generativeai
-# google-genai
-# pyaudio
+google-generativeai
+google-genai
+pyaudio
 pillow
-# mss
+mss
 nest_asyncio
 psutil

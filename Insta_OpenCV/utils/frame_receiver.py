@@ -28,120 +28,194 @@ def get_preview_url():
         settings = json.load(f)
     return settings.get('rtmp_url')
 
-def camera_process(cam_id, width, height, frame_dict, param_dict):
+def camera_process(cam_id, stream_url, width, height, frame_dict, param_dict):
     import psutil
     import time as _time
     import cv2 # Ensure cv2 is imported here if not already globally
     import numpy as np # Ensure np is imported here
+    import os
+    import ctypes.util
+
+    # detect whether libnvcuvid is available in the container / host mounts
+    has_cuvid = False
+    # try find library via ctypes and common path
+    if ctypes.util.find_library('nvcuvid'):
+        has_cuvid = True
+    elif os.path.exists('/usr/lib/aarch64-linux-gnu/libnvcuvid.so.1') or os.path.exists('/usr/lib/aarch64-linux-gnu/tegra/libnvcuvid.so.1'):
+        has_cuvid = True
+
     stream_mode = get_stream_mode()
     if stream_mode == 'live':
+        # keep existing ffmpeg-subprocess based pipeline for live/origin streams
         url = f'rtmp://192.168.1.188:1935/live/origin{cam_id}'
-        # Using h264_cuvid for decode and scale_cuda for GPU scale, then hwdownload
+        if has_cuvid:
+            decoder_args = ['-c:v', 'h264_cuvid']
+            vf = 'scale_npp=w=320:h=240:format=bgr24:interp_algo=super'
+        else:
+            decoder_args = []
+            vf = 'scale=w=320:h=240,format=bgr24'
         ffmpeg_cmd = [
             'ffmpeg',
-            '-hwaccel', 'cuda',
-            '-hwaccel_output_format', 'cuda', # Keep frames in GPU memory
-            '-c:v', 'h264_cuvid',
-            '-fflags', 'nobuffer',
-            '-flags', 'low_delay',
-            '-threads', '1', # Changed from 2 to 1
-            '-analyzeduration', '1000000',
-            '-probesize', '1000000',
+        ] + decoder_args + [
             '-i', url,
-            '-vf', 'scale_cuda=w=320:h=240:format=nv12,hwdownload,format=nv12,format=bgr24', # Download as nv12, then convert to bgr24
-            '-pix_fmt', 'bgr24',
+            '-vf', vf,
             '-f', 'rawvideo',
             '-an', '-sn', '-dn',
             '-']
         target_shape = (240, 320, 3) # H, W, C for BGR24 output (w=320, h=240)
         do_undistort = True
-    else: # preview mode
-        url = get_preview_url()
-        # Using h264_cuvid for decode and scale_cuda for GPU scale, then hwdownload
-        ffmpeg_cmd = [
-            'ffmpeg',
-            '-hwaccel', 'cuda',
-            '-hwaccel_output_format', 'cuda', # Keep frames in GPU memory
-            '-c:v', 'h264_cuvid',
-            '-fflags', 'nobuffer',
-            '-flags', 'low_delay',
-            '-threads', '1', # Changed from 2 to 1
-            '-analyzeduration', '1000000',
-            '-probesize', '1000000',
-            '-i', url,
-            '-vf', 'scale_cuda=w=640:h=320:format=nv12,hwdownload,format=nv12,format=bgr24', # Download as nv12, then convert to bgr24
-            '-pix_fmt', 'bgr24',
-            '-r', '30',
-            '-f', 'rawvideo',
-            '-an', '-sn', '-dn',
-            '-']
-        target_shape = (320, 640, 3) # H, W, C for BGR24 output
-        do_undistort = False
-    # ... (rest of the function, including stderr reading, process creation) ...
-    # ... (Python-side rotation for live mode and undistortion logic remains the same) ...
-    import subprocess # ensure subprocess is imported
-    import queue # ensure queue is imported 
-    def read_stderr(pipe, q):
-        while True:
-            line = pipe.stderr.readline()
-            if not line:
-                break
-            q.put(line.decode(errors='ignore'))
-    pipe = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=10**8)
-    stderr_q = queue.Queue()
-    t = threading.Thread(target=read_stderr, args=(pipe, stderr_q), daemon=True)
-    t.start()
-    ffmpeg_proc = psutil.Process(pipe.pid)
-    last_log = _time.time()
-    try:
-        while True:
-            # Expected size for BGR24 frame
-            expected_frame_size = target_shape[0] * target_shape[1] * 3
-            raw_frame = pipe.stdout.read(expected_frame_size)
-            if not raw_frame or len(raw_frame) != expected_frame_size:
-                print(f"[cam{cam_id}] Incomplete frame data or pipe closed. Expected {expected_frame_size}, got {len(raw_frame) if raw_frame else 0}. Check ffmpeg stderr.")
-                # Check stderr queue for ffmpeg errors
-                while not stderr_q.empty():
-                    print(f"[ffmpeg-stderr][cam{cam_id}] {stderr_q.get_nowait()}")
-                _time.sleep(0.1) # Avoid busy-looping if pipe is broken
-                continue
-            frame = np.frombuffer(raw_frame, np.uint8).reshape(target_shape)
 
-            if stream_mode == 'live':
+        import subprocess # ensure subprocess is imported
+        import queue # ensure queue is imported 
+        def read_stderr(pipe, q):
+            while True:
+                line = pipe.stderr.readline()
+                if not line:
+                    break
+                q.put(line.decode(errors='ignore'))
+        pipe = subprocess.Popen(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=10**8)
+        stderr_q = queue.Queue()
+        t = threading.Thread(target=read_stderr, args=(pipe, stderr_q), daemon=True)
+        t.start()
+        ffmpeg_proc = psutil.Process(pipe.pid)
+        last_log = _time.time()
+        try:
+            while True:
+                # Expected size for BGR24 frame
+                expected_frame_size = target_shape[0] * target_shape[1] * 3
+                raw_frame = pipe.stdout.read(expected_frame_size)
+                if not raw_frame or len(raw_frame) != expected_frame_size:
+                    print(f"[cam{cam_id}] Incomplete frame data or pipe closed. Expected {expected_frame_size}, got {len(raw_frame) if raw_frame else 0}. Check ffmpeg stderr.")
+                    # Check stderr queue for ffmpeg errors
+                    while not stderr_q.empty():
+                        print(f"[ffmpeg-stderr][cam{cam_id}] {stderr_q.get_nowait()}")
+                    _time.sleep(0.1) # Avoid busy-looping if pipe is broken
+                    continue
+                frame = np.frombuffer(raw_frame, np.uint8).reshape(target_shape)
+
                 frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-            if do_undistort:
-                params = param_dict['params']
-                K = np.array([[params['fx'], 0, params['cx']], [0, params['fy'], params['cy']], [0, 0, 1]], dtype=np.float32)
-                D = np.array([params['d0'], params['d1'], 0, 0], dtype=np.float32)
-                current_frame_shape = frame.shape
-                DIM = (current_frame_shape[1], current_frame_shape[0])
-                map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, DIM, cv2.CV_16SC2)
-                frame = cv2.remap(frame, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
-            
-            frame_dict[cam_id] = frame
-            now = _time.time()
-            if now - last_log > 2:
+                if do_undistort:
+                    params = param_dict['params']
+                    K = np.array([[params['fx'], 0, params['cx']], [0, params['fy'], params['cy']], [0, 0, 1]], dtype=np.float32)
+                    D = np.array([params['d0'], params['d1'], 0, 0], dtype=np.float32)
+                    current_frame_shape = frame.shape
+                    DIM = (current_frame_shape[1], current_frame_shape[0])
+                    map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), K, DIM, cv2.CV_16SC2)
+                    frame = cv2.remap(frame, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+                
+                frame_dict[cam_id] = frame
+                now = _time.time()
+                if now - last_log > 2:
+                    try:
+                        cpu = ffmpeg_proc.cpu_percent(interval=0.1)
+                        mem = ffmpeg_proc.memory_info().rss / 1024 / 1024
+                        print(f"[ffmpeg][cam{cam_id}] CPU: {cpu:.1f}%  RAM: {mem:.1f}MB  PID: {pipe.pid}")
+                    except Exception as e:
+                        print(f"[ffmpeg][cam{cam_id}] 資源監控失敗: {e}")
+                    last_log = now
+        except KeyboardInterrupt:
+            pass
+        finally:
+            try:
+                pipe.terminate()
+            except Exception:
+                pass
+
+    else: # preview mode - use OpenCV VideoCapture (no subprocess)
+        url = stream_url if stream_url else get_preview_url()
+        do_undistort = False
+
+        cap = None
+        reconnect_delay = 1.0
+        last_log = _time.time()
+        try:
+            while True:
+                if cap is None:
+                    # try open with ffmpeg backend if available, else default
+                    try:
+                        cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
+                        if not cap.isOpened():
+                            cap.release()
+                            cap = cv2.VideoCapture(url)
+                    except Exception:
+                        cap = cv2.VideoCapture(url)
+                        
+                    # 設定低延遲屬性
+                    if cap.isOpened():
+                        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # 設定緩衝區大小為1
+                        cap.set(cv2.CAP_PROP_FPS, 60)  # 提高幀率到60 FPS
+                        # 嘗試設定更多低延遲屬性
+                        try:
+                            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('H', '2', '6', '4'))
+                        except:
+                            pass
+                        print(f"[cam{cam_id}] VideoCapture opened with low-latency settings (60 FPS)")
+                        
+                    if not cap.isOpened():
+                        print(f"[cam{cam_id}] VideoCapture open failed, retrying in {reconnect_delay}s")
+                        try:
+                            cap.release()
+                        except Exception:
+                            pass
+                        cap = None
+                        _time.sleep(reconnect_delay)
+                        continue
+
+                ret, frame = cap.read()
+                if not ret or frame is None:
+                    print(f"[cam{cam_id}] VideoCapture read failed, reconnecting...")
+                    try:
+                        cap.release()
+                    except Exception:
+                        pass
+                    cap = None
+                    _time.sleep(reconnect_delay)
+                    continue
+
+                # 回到簡單有效的緩衝區清理策略
+                for _ in range(5):  # 固定丟棄5幀，經測試的平衡點
+                    ret_temp, frame_temp = cap.read()
+                    if ret_temp and frame_temp is not None:
+                        frame = frame_temp
+                    else:
+                        break
+
+                frame_dict[cam_id] = frame
+
+                now = _time.time()
+                if now - last_log > 2:
+                    try:
+                        print(f"[cap][cam{cam_id}] frame size {frame.shape}")
+                    except Exception:
+                        pass
+                    last_log = now
+
+                # 移除睡眠以提高響應速度
+                # _time.sleep(0.01)
+        except KeyboardInterrupt:
+            pass
+        finally:
+            if cap is not None:
                 try:
-                    cpu = ffmpeg_proc.cpu_percent(interval=0.1)
-                    mem = ffmpeg_proc.memory_info().rss / 1024 / 1024
-                    print(f"[ffmpeg][cam{cam_id}] CPU: {cpu:.1f}%  RAM: {mem:.1f}MB  PID: {pipe.pid}")
-                except Exception as e:
-                    print(f"[ffmpeg][cam{cam_id}] 資源監控失敗: {e}")
-                last_log = now
-    except KeyboardInterrupt:
-        pass
-    finally:
-        pipe.terminate()
+                    cap.release()
+                except Exception:
+                    pass
 
 class FrameReceiver:
-    def __init__(self, cam_ids=None, width=240, height=320, params=None):
-        stream_mode = get_stream_mode()
-        if stream_mode == 'preview':
-            cam_ids = [0]  # 只啟動一個 process
-        elif cam_ids is None:
-            # 修改為 1, 5, 3, 2, 6, 4
-            cam_ids = [1, 5, 3, 2, 6, 4]
+    def __init__(self, stream_url=None, cam_ids=None, width=240, height=320, params=None):
+        self.stream_url = stream_url
+        # If a specific stream_url is provided, force single-camera preview mode.
+        if self.stream_url:
+            cam_ids = [0]
+        else:
+            stream_mode = get_stream_mode()
+            if stream_mode == 'preview':
+                cam_ids = [0]  # 只啟動一個 process
+            elif cam_ids is None:
+                # 修改為 1, 5, 3, 2, 6, 4
+                cam_ids = [1, 5, 3, 2, 6, 4]
+
         if isinstance(cam_ids, int):
             cam_ids = [cam_ids]
         self.cam_ids = cam_ids
@@ -161,7 +235,8 @@ class FrameReceiver:
         if self._running:
             return
         for cam_id in self.cam_ids:
-            p = mp.Process(target=camera_process, args=(cam_id, self.width, self.height, self._frame_dict, self._param_dict))
+            # Pass the stream_url to the target process
+            p = mp.Process(target=camera_process, args=(cam_id, self.stream_url, self.width, self.height, self._frame_dict, self._param_dict))
             p.start()
             self._processes.append(p)
         self._running = True

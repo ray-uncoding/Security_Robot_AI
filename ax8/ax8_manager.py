@@ -5,7 +5,6 @@ import requests
 import cv2
 import numpy as np
 import json
-from ultralytics import YOLO  # 引入 YOLO 模型
 
 class AX8Manager:
     def __init__(self, url, username, password):
@@ -14,7 +13,6 @@ class AX8Manager:
         self.password = password
         self.session = None
         self.running = False
-        self.model = YOLO("d:/工作/CODE_AREA/Security_Robot_AI/config/yolov8n.pt")  # 載入 YOLO 模型
 
     def login(self):
         """
@@ -60,7 +58,7 @@ class AX8Manager:
 
     def display_stream(self):
         """
-        顯示 AX8 的影像串流，並在右上角顯示 FPS 和進行 YOLO 偵測
+        顯示 AX8 的影像串流，並在右上角顯示 FPS
         """
         if not self.login():
             print("[AX8Manager] 登錄失敗，無法顯示影像串流")
@@ -77,20 +75,6 @@ class AX8Manager:
         while self.running:
             frame = self.fetch_frame()
             if frame is not None:
-                # YOLO 偵測
-                results = self.model(frame)
-                for result in results:
-                    boxes = result.boxes.xyxy.cpu().numpy()  # 偵測框座標
-                    confidences = result.boxes.conf.cpu().numpy()  # 信心分數
-                    classes = result.boxes.cls.cpu().numpy()  # 類別
-
-                    for box, confidence, cls in zip(boxes, confidences, classes):
-                        if int(cls) == 0:  # 類別 0 通常是 "person"
-                            x1, y1, x2, y2 = map(int, box)
-                            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                            cv2.putText(frame, f"Person {confidence:.2f}", (x1, y1 - 10),
-                                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
                 # 計算 FPS
                 frame_count += 1
                 elapsed_time = time.time() - start_time
@@ -100,7 +84,7 @@ class AX8Manager:
                 cv2.putText(frame, f"FPS: {fps:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
                 # 顯示影像
-                cv2.imshow("AX8 Snapshot with YOLO", frame)
+                cv2.imshow("AX8 Snapshot", frame)
 
             # 定期發送心跳請求
             if time.time() - last_heartbeat > 10:  # 每 10 秒發送一次心跳

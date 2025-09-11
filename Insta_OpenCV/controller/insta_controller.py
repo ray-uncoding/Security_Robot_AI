@@ -10,6 +10,10 @@ import aiohttp
 import datetime
 import psutil
 import nest_asyncio  # 新增，支援巢狀事件循環
+import platform # To check OS
+import time # Import the time module
+import logging
+import httpx
 from ..utils.config_loader import load_settings, save_settings
 from ..utils.frame_receiver import FrameReceiver
 from ..services.heartbeat import HeartbeatService
@@ -22,16 +26,79 @@ class InstaController:
     - 僅保留底層 API 操作，不再負責高階協調
     - start_all、stop_all、get_latest_frame 等高階功能已移至 InstaWorker
     """
-    def __init__(self):
-        self.session: aiohttp.ClientSession | None = None
+    def __init__(self, ip_address="192.168.1.1"):
+        self.ip_address = ip_address  # Store the IP address
+        self.session: httpx.AsyncClient | None = None
         self.settings = load_settings()
         http_port = self.settings.get("http_port", 20000)
-        self.base_url = f"http://{self.settings['insta_ip']}:{http_port}/osc"
+        self.base_url = f"http://{ip_address}:{http_port}/osc"
         self.fingerprint = self.settings.get("fingerprint", "")
         # 讀取 API payload 設定
         payload_path = os.path.join(os.path.dirname(__file__), "../config/api_payloads.json")
         with open(payload_path, "r", encoding="utf-8") as f:
             self.api_payloads = json.load(f)
+
+    def _manage_nginx(self, start=True):
+        """
+        Manages the Nginx server by stopping any existing instance 
+        and starting a new one with the project's configuration.
+        """
+        os_type = platform.system()
+        nginx_process_name = "nginx.exe" if os_type == "Windows" else "nginx"
+        # Corrected the relative path from 3 levels up to 2 levels up.
+        conf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../nginx 1.7.11.3 Gryphon/conf/nginx.conf'))
+
+        def stop_any_nginx():
+            print("[_manage_nginx] Attempting to stop any running Nginx instance...")
+            try:
+                if os_type == "Windows":
+                    # For the bundled windows version, taskkill is effective
+                    subprocess.run(['taskkill', '/F', '/IM', 'nginx.exe'], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                else: # Linux/macOS
+                    # Use 'nginx -s quit' for graceful shutdown. It's okay if it fails (if not running).
+                    # This will stop the master process started by the system.
+                    subprocess.run(['sudo', 'nginx', '-s', 'quit'], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                
+                time.sleep(1) # Give it a moment to shut down.
+                print("[_manage_nginx] Sent stop signal to any running Nginx.")
+            except Exception as e:
+                print(f"[_manage_nginx] Error while trying to stop Nginx (this might be okay): {e}")
+
+        if start:
+            # Always stop any running Nginx first to ensure we use our config.
+            stop_any_nginx()
+            
+            print(f"[_manage_nginx] Starting Nginx with project config on {os_type}...")
+            try:
+                if os_type == "Windows":
+                    nginx_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../nginx 1.7.11.3 Gryphon/nginx.exe'))
+                    nginx_cwd = os.path.dirname(nginx_path)
+                    subprocess.Popen([nginx_path], cwd=nginx_cwd, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                else: # Linux/macOS
+                    # Start nginx with our specific config file.
+                    subprocess.Popen(['sudo', 'nginx', '-c', conf_path])
+                
+                time.sleep(2) # Wait for Nginx to initialize.
+                is_running = any(nginx_process_name in p.name().lower() for p in psutil.process_iter(['name']))
+                if is_running:
+                    print("[_manage_nginx] Nginx started successfully with project config.")
+                else:
+                    print("[_manage_nginx] CRITICAL: Failed to start Nginx with project config.")
+            except Exception as e:
+                print(f"[_manage_nginx] CRITICAL: Failed to start Nginx: {e}")
+        
+        else: # Stop our instance
+            print(f"[_manage_nginx] Stopping Nginx instance (started with project config)...")
+            try:
+                # The most reliable way to stop the instance we started is with the same config file.
+                if os_type == "Windows":
+                     subprocess.run(['taskkill', '/F', '/IM', 'nginx.exe'], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                else:
+                    subprocess.run(['sudo', 'nginx', '-c', conf_path, '-s', 'quit'], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                
+                print("[_manage_nginx] Nginx stop signal sent.")
+            except Exception as e:
+                print(f"[_manage_nginx] Failed to send stop signal to Nginx: {e}")
 
     def _get_headers(self):
         return {
@@ -41,49 +108,98 @@ class InstaController:
 
     async def connect(self):
         """建立與相機的會話連線，取得 fingerprint"""
+        # Create a persistent httpx client session
+        self.session = httpx.AsyncClient(timeout=15.0)
+        
         url = f"{self.base_url}/commands/execute"
         now = datetime.datetime.now(datetime.timezone.utc)
         hw_time = now.strftime("%m%d%H%M%Y.%S")
         payload = json.loads(json.dumps(self.api_payloads["connect"]))
         payload["parameters"]["hw_time"] = hw_time
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, headers={"Content-Type": "application/json"}) as resp:
-                try:
-                    data = await resp.json(content_type=None)
-                except Exception as e:
-                    text = await resp.text()
-                    try:
-                        text_json = json.loads(text)
-                        text = json.dumps(text_json, indent=2, ensure_ascii=False)
-                    except Exception:
-                        pass
-                    print(f"[connect] 無法解析 JSON，HTTP狀態: {resp.status}, 內容如下:\n{text}")
-                    raise RuntimeError(f"connect 失敗: {e}, HTTP狀態: {resp.status}, 內容: {text}")
+        
+        try:
+            response = await self.session.post(url, json=payload, headers={"Content-Type": "application/json"})
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("state") == "done":
                 self.fingerprint = data.get("results", {}).get("Fingerprint", "")
-                self.settings["fingerprint"] = self.fingerprint
-                save_settings(self.settings)
+                if self.fingerprint:
+                    self.settings["fingerprint"] = self.fingerprint
+                    save_settings(self.settings)
+                    logging.info(f"[connect] Successfully connected. Fingerprint: {self.fingerprint}")
+                else:
+                    raise RuntimeError(f"connect 成功但無法取得 fingerprint: {data}")
+            else:
+                raise RuntimeError(f"connect 失敗: {data}")
+                
+        except Exception as e:
+            if self.session:
+                await self.session.aclose()
+                self.session = None
+            raise RuntimeError(f"connect 失敗: {e}")
 
-    async def start_preview(self):
-        """啟動 RTMP 串流預覽"""
-        if not self.fingerprint:
-            raise RuntimeError("尚未取得 fingerprint，請先 connect()")
-        payload = self.api_payloads["start_preview"]
-        cmd_url = f"{self.base_url}/commands/execute"
-        async with aiohttp.ClientSession() as session:
-            async with session.post(cmd_url, json=payload, headers=self._get_headers()) as resp2:
-                try:
-                    resp_data2 = await resp2.json(content_type=None)
-                except Exception as e:
-                    text = await resp2.text()
-                    try:
-                        text_json = json.loads(text)
-                        text = json.dumps(text_json, indent=2, ensure_ascii=False)
-                    except Exception:
-                        pass
-                    print(f"[start_preview] 無法解析 JSON，HTTP狀態: {resp2.status}, 內容如下:\n{text}")
-                    raise RuntimeError(f"start_preview 失敗: {e}, HTTP狀態: {resp2.status}, 內容: {text}")
-                if resp_data2.get("state") != "done":
-                    print(f"start_preview 回傳異常: {json.dumps(resp_data2, indent=2, ensure_ascii=False)}")
+    async def start_preview(self, stream_type='rtmp'):
+        """
+        Starts the camera preview using the correct OSC command format.
+        :param stream_type: 'rtmp' or 'low_latency'
+        """
+        print(f"[start_preview] DEBUG: Method called with stream_type={stream_type}")
+        self._manage_nginx('start')
+        
+        # Ensure we have a session
+        if not self.session:
+            print("[start_preview] ERROR: No session available")
+            raise RuntimeError("No session available. Call connect() first.")
+        
+        print(f"[start_preview] DEBUG: Session is available: {type(self.session)}")
+        
+        # Use the correct OSC commands/execute endpoint with the payload from api_payloads.json
+        url = f"{self.base_url}/commands/execute"
+        payload = json.loads(json.dumps(self.api_payloads["start_preview"]))
+        
+        print(f"[start_preview] DEBUG: Original payload: {payload}")
+        
+        # Modify the payload to include RTMP push URL and higher quality settings
+        if "parameters" in payload:
+            # Update the stiching parameters to use higher quality settings and add RTMP URL
+            if "stiching" in payload["parameters"]:
+                payload["parameters"]["stiching"]["width"] = 3840
+                payload["parameters"]["stiching"]["height"] = 1920
+                payload["parameters"]["stiching"]["framerate"] = 30
+                payload["parameters"]["stiching"]["bitrate"] = 8000  # 8Mbps
+                # Add the RTMP URL for the stitched stream - use host IP that camera can reach
+                payload["parameters"]["stiching"]["liveUrl"] = f"rtmp://192.168.1.11:1935/live/preview"
+            
+            # Also update origin parameters if needed
+            if "origin" in payload["parameters"]:
+                payload["parameters"]["origin"]["framerate"] = 30
+                payload["parameters"]["origin"]["bitrate"] = 20480  # Keep high bitrate for origin
+        
+        print(f"[start_preview] DEBUG: Modified payload: {payload}")
+        
+        try:
+            print(f"[start_preview] DEBUG: Current fingerprint: {self.fingerprint}")
+            print(f"[start_preview] DEBUG: Sending startPreview command to {url}")
+            
+            response = await self.session.post(url, json=payload, headers=self._get_headers())
+            response.raise_for_status()
+            response_data = response.json()
+            
+            print(f"[start_preview] DEBUG: Full response: {response_data}")
+            
+            if response_data.get("state") == "done":
+                print("[start_preview] SUCCESS: Preview started successfully.")
+                return response_data
+            else:
+                print(f"[start_preview] ERROR: Preview failed with response: {response_data}")
+                self._manage_nginx('stop')
+                raise RuntimeError(f"Preview failed: {response_data}")
+                
+        except Exception as e:
+            print(f"[start_preview] ERROR: Exception starting preview: {e}")
+            self._manage_nginx('stop')
+            raise
 
     async def stop_preview(self):
         """停止 RTMP 串流"""
@@ -96,6 +212,7 @@ class InstaController:
                 data = await resp.json(content_type=None)
                 if data.get("state") != "done":
                     raise RuntimeError(f"stopPreview 失敗: {data}")
+        self._manage_nginx(start=False) # Stop Nginx
 
     async def take_picture(self):
         """拍攝靜態圖片，回傳 sequence"""
@@ -146,34 +263,42 @@ class InstaController:
 
     async def start_live(self):
         """啟動 origin live 六路魚眼 RTMP 串流，啟動前自動開啟 nginx"""
-        # 啟動 nginx（若尚未啟動）
-        nginx_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../nginx 1.7.11.3 Gryphon/nginx.exe'))
-        try:
-            # Windows: 只啟動一次，不重複開啟
-            nginx_running = any('nginx.exe' in p.name().lower() for p in psutil.process_iter())
-            if not nginx_running:
-                subprocess.Popen([nginx_path], creationflags=subprocess.CREATE_NEW_CONSOLE)
-        except Exception as e:
-            print(f"[start_live] 啟動 nginx 失敗: {e}")
+        self._manage_nginx(start=True) # Ensure Nginx is running
+        
+        # Ensure we have a session
+        if not self.session:
+            raise RuntimeError("No session available. Call connect() first.")
         if not self.fingerprint:
             raise RuntimeError("尚未取得 fingerprint，請先 connect()")
-        payload = self.api_payloads["start_live"]
+            
+        # Get the payload and modify the liveUrl to point to our local server
+        payload = json.loads(json.dumps(self.api_payloads["start_live"]))
+        if "parameters" in payload and "origin" in payload["parameters"]:
+            payload["parameters"]["origin"]["liveUrl"] = "rtmp://127.0.0.1:1935/live/preview"
+            payload["parameters"]["origin"]["bitrate"] = 8000  # 8Mbps for better quality
+            payload["parameters"]["origin"]["framerate"] = 30  # Higher framerate
+        
         cmd_url = f"{self.base_url}/commands/execute"
-        async with aiohttp.ClientSession() as session:
-            async with session.post(cmd_url, json=payload, headers=self._get_headers()) as resp:
-                try:
-                    resp_data = await resp.json(content_type=None)
-                except Exception as e:
-                    text = await resp.text()
-                    try:
-                        text_json = json.loads(text)
-                        text = json.dumps(text_json, indent=2, ensure_ascii=False)
-                    except Exception:
-                        pass
-                    print(f"[start_live] 無法解析 JSON，HTTP狀態: {resp.status}, 內容如下:\n{text}")
-                    raise RuntimeError(f"start_live 失敗: {e}, HTTP狀態: {resp.status}, 內容: {text}")
-                if resp_data.get("state") != "done":
-                    print(f"start_live 回傳異常: {json.dumps(resp_data, indent=2, ensure_ascii=False)}")
+        try:
+            logging.info(f"[start_live] Sending start_live command with payload: {payload}")
+            response = await self.session.post(cmd_url, json=payload, headers=self._get_headers())
+            response.raise_for_status()
+            resp_data = response.json()
+            
+            logging.info(f"[start_live] Full response: {resp_data}")
+            
+            if resp_data.get("state") == "done":
+                logging.info("[start_live] Live stream started successfully.")
+                return resp_data
+            else:
+                logging.error(f"[start_live] Live stream failed with response: {resp_data}")
+                self._manage_nginx('stop')
+                raise RuntimeError(f"Live stream failed: {resp_data}")
+                
+        except Exception as e:
+            logging.error(f"[start_live] Error starting live stream: {e}")
+            self._manage_nginx('stop')
+            raise
 
     def stop_live_sync(self):
         """同步呼叫 stop_live (for worker, 支援已存在事件循環)"""
@@ -202,7 +327,7 @@ class InstaController:
             asyncio.run(self.stop_preview())
 
     async def stop_live(self):
-        """停止 origin live 串流，並嘗試關閉 nginx 服務（僅 Windows）"""
+        """停止 origin live 串流，並嘗試關閉 nginx 服務"""
         if not self.fingerprint:
             return
         payload = self.api_payloads["stop_live"]
@@ -212,15 +337,4 @@ class InstaController:
                 data = await resp.json(content_type=None)
                 if data.get("state") != "done":
                     raise RuntimeError(f"stop_live 失敗: {data}")
-        # 關閉 nginx
-        try:
-            for p in psutil.process_iter():
-                if 'nginx.exe' in p.name().lower():
-                    p.terminate()
-                    try:
-                        p.wait(timeout=3)
-                    except Exception:
-                        p.kill()
-                    print("[stop_live] nginx.exe 已關閉")
-        except Exception as e:
-            print(f"[stop_live] 關閉 nginx 失敗: {e}")
+        self._manage_nginx(start=False) # Stop Nginx
