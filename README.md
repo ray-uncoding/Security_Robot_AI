@@ -62,9 +62,17 @@ Security_Robot_AI/
 │   ├── bin/ffmpeg.exe
 │   └── ...
 │
-└── config/                     # 全域設定檔或模型權重
-    ├── osnet_x0_25_imagenet.pth # OSNet 預訓練模型權重 (範例)
-    └── yolov8n.pt              # (重複參考，通常放一處)
+├── config/                     # 全域設定檔或模型權重
+│   ├── osnet_x0_25_imagenet.pth # OSNet 預訓練模型權重 (範例)
+│   └── yolov8n.pt              # (重複參考，通常放一處)
+│
+└── projects/                   # 整合的相關專案
+    ├── README.md               # 專案目錄說明
+    ├── demo_opencv/            # OpenCV 示範與測試專案
+    ├── OCR/                    # 光學字符識別系統
+    ├── Sr_robot_Base/          # 機器人基礎控制與導航系統 (ROS2)
+    ├── Sr_robot_GUI/           # 機器人控制圖形化使用者介面
+    └── turn_on_wheeltec_robot/ # Wheeltec 機器人初始化與設定
 ```
 
 *註：上述目錄結構根據目前觀察到的檔案進行推斷，可能與實際情況略有差異。*

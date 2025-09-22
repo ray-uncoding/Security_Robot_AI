@@ -1,0 +1,10 @@
+{
+  "package_name": "lslidar_msgs",
+  "non_idl_tuples": [
+    "/home/nvidia/workspace/Sr_robot_Base/wheeltec_lidar_ros2/LSlidar/lslidar_msgs:msg/LslidarDifop.msg",
+    "/home/nvidia/workspace/Sr_robot_Base/wheeltec_lidar_ros2/LSlidar/lslidar_msgs:msg/LslidarPacket.msg",
+    "/home/nvidia/workspace/Sr_robot_Base/wheeltec_lidar_ros2/LSlidar/lslidar_msgs:msg/LslidarPoint.msg",
+    "/home/nvidia/workspace/Sr_robot_Base/wheeltec_lidar_ros2/LSlidar/lslidar_msgs:msg/LslidarScan.msg",
+    "/home/nvidia/workspace/Sr_robot_Base/wheeltec_lidar_ros2/LSlidar/lslidar_msgs:msg/LslidarSweep.msg"
+  ]
+}

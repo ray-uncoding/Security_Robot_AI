@@ -1,0 +1,19 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from ackermann_msgs/msg/AckermannDriveStamped.msg
+// generated code does not contain a copyright notice
+
+#include "ackermann_msgs/msg/AckermannDrive.idl"
+#include "std_msgs/msg/Header.idl"
+
+module ackermann_msgs {
+  module msg {
+    @verbatim (language="comment", text=
+      "Time stamped drive command for robots with Ackermann steering." "\n"
+      " $Id$")
+    struct AckermannDriveStamped {
+      std_msgs::msg::Header header;
+
+      ackermann_msgs::msg::AckermannDrive drive;
+    };
+  };
+};

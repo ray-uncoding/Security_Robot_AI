@@ -1,0 +1,10 @@
+/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_joy/CMakeFiles/uninstall.dir
+/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_joy/CMakeFiles/wheeltec_joy_uninstall.dir
+/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_joy/CMakeFiles/wheeltec_joy.dir
+/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_joy/CMakeFiles/test.dir
+/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_joy/CMakeFiles/edit_cache.dir
+/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_joy/CMakeFiles/rebuild_cache.dir
+/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_joy/CMakeFiles/list_install_components.dir
+/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_joy/CMakeFiles/install.dir
+/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_joy/CMakeFiles/install/local.dir
+/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_joy/CMakeFiles/install/strip.dir

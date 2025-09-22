@@ -1,0 +1,12 @@
+source;share/serial_ros2/hook/cmake_prefix_path.ps1
+source;share/serial_ros2/hook/cmake_prefix_path.dsv
+source;share/serial_ros2/hook/cmake_prefix_path.sh
+source;share/serial_ros2/hook/ros_package_path.ps1
+source;share/serial_ros2/hook/ros_package_path.dsv
+source;share/serial_ros2/hook/ros_package_path.sh
+source;share/serial_ros2/hook/pkg_config_path.ps1
+source;share/serial_ros2/hook/pkg_config_path.dsv
+source;share/serial_ros2/hook/pkg_config_path.sh
+source;share/serial_ros2/hook/pkg_config_path_multiarch.ps1
+source;share/serial_ros2/hook/pkg_config_path_multiarch.dsv
+source;share/serial_ros2/hook/pkg_config_path_multiarch.sh

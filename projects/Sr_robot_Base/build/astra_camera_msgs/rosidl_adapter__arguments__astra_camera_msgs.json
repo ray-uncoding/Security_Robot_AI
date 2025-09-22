@@ -1,0 +1,14 @@
+{
+  "package_name": "astra_camera_msgs",
+  "non_idl_tuples": [
+    "/home/nvidia/workspace/Sr_robot_Base/ros2_astra_camera/astra_camera_msgs:msg/DeviceInfo.msg",
+    "/home/nvidia/workspace/Sr_robot_Base/ros2_astra_camera/astra_camera_msgs:msg/Extrinsics.msg",
+    "/home/nvidia/workspace/Sr_robot_Base/ros2_astra_camera/astra_camera_msgs:msg/Metadata.msg",
+    "/home/nvidia/workspace/Sr_robot_Base/ros2_astra_camera/astra_camera_msgs:srv/GetDeviceInfo.srv",
+    "/home/nvidia/workspace/Sr_robot_Base/ros2_astra_camera/astra_camera_msgs:srv/GetCameraInfo.srv",
+    "/home/nvidia/workspace/Sr_robot_Base/ros2_astra_camera/astra_camera_msgs:srv/GetCameraParams.srv",
+    "/home/nvidia/workspace/Sr_robot_Base/ros2_astra_camera/astra_camera_msgs:srv/GetInt32.srv",
+    "/home/nvidia/workspace/Sr_robot_Base/ros2_astra_camera/astra_camera_msgs:srv/GetString.srv",
+    "/home/nvidia/workspace/Sr_robot_Base/ros2_astra_camera/astra_camera_msgs:srv/SetInt32.srv"
+  ]
+}

@@ -1,0 +1,3 @@
+[console_scripts]
+wheeltec_keyboard = wheeltec_robot_keyboard.wheeltec_keyboard:main
+

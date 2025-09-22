@@ -1,0 +1,14 @@
+{
+  "package_name": "dwb_msgs",
+  "non_idl_tuples": [
+    "/home/nvidia/workspace/Sr_robot_Base/navigation2-humble/nav2_dwb_controller/dwb_msgs:msg/CriticScore.msg",
+    "/home/nvidia/workspace/Sr_robot_Base/navigation2-humble/nav2_dwb_controller/dwb_msgs:msg/LocalPlanEvaluation.msg",
+    "/home/nvidia/workspace/Sr_robot_Base/navigation2-humble/nav2_dwb_controller/dwb_msgs:msg/Trajectory2D.msg",
+    "/home/nvidia/workspace/Sr_robot_Base/navigation2-humble/nav2_dwb_controller/dwb_msgs:msg/TrajectoryScore.msg",
+    "/home/nvidia/workspace/Sr_robot_Base/navigation2-humble/nav2_dwb_controller/dwb_msgs:srv/DebugLocalPlan.srv",
+    "/home/nvidia/workspace/Sr_robot_Base/navigation2-humble/nav2_dwb_controller/dwb_msgs:srv/GenerateTrajectory.srv",
+    "/home/nvidia/workspace/Sr_robot_Base/navigation2-humble/nav2_dwb_controller/dwb_msgs:srv/GenerateTwists.srv",
+    "/home/nvidia/workspace/Sr_robot_Base/navigation2-humble/nav2_dwb_controller/dwb_msgs:srv/GetCriticScore.srv",
+    "/home/nvidia/workspace/Sr_robot_Base/navigation2-humble/nav2_dwb_controller/dwb_msgs:srv/ScoreTrajectory.srv"
+  ]
+}

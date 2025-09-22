@@ -1,0 +1,21 @@
+// generated from rosidl_adapter/resource/action.idl.em
+// with input from wheeltec_rrt_msg/action/PickColouredBox.action
+// generated code does not contain a copyright notice
+
+#include "std_msgs/msg/Empty.idl"
+
+module wheeltec_rrt_msg {
+  module action {
+    struct PickColouredBox_Goal {
+      string box_colour;
+    };
+    struct PickColouredBox_Result {
+      std_msgs::msg::Empty result;
+    };
+    @verbatim (language="comment", text=
+      "feedback")
+    struct PickColouredBox_Feedback {
+      uint8 structure_needs_at_least_one_member;
+    };
+  };
+};

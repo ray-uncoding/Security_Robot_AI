@@ -1,0 +1,7 @@
+{
+  "package_name": "ackermann_msgs",
+  "non_idl_tuples": [
+    "/home/nvidia/workspace/Sr_robot_Base/depend/ackermann_msgs-ros2:msg/AckermannDrive.msg",
+    "/home/nvidia/workspace/Sr_robot_Base/depend/ackermann_msgs-ros2:msg/AckermannDriveStamped.msg"
+  ]
+}

@@ -1,0 +1,62 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from ackermann_msgs/msg/AckermannDrive.msg
+// generated code does not contain a copyright notice
+
+
+module ackermann_msgs {
+  module msg {
+    @verbatim (language="comment", text=
+      "Driving command for a car-like vehicle using Ackermann steering." "\n"
+      " $Id$")
+    struct AckermannDrive {
+      @verbatim (language="comment", text=
+        "Assumes Ackermann front-wheel steering. The left and right front" "\n"
+        "wheels are generally at different angles. To simplify, the commanded" "\n"
+        "angle corresponds to the yaw of a virtual wheel located at the" "\n"
+        "center of the front axle, like on a tricycle.  Positive yaw is to" "\n"
+        "the left. (This is *not* the angle of the steering wheel inside the" "\n"
+        "passenger compartment.)" "\n"
+        "" "\n"
+        "Zero steering angle velocity means change the steering angle as" "\n"
+        "quickly as possible. Positive velocity indicates a desired absolute" "\n"
+        "rate of change either left or right. The controller tries not to" "\n"
+        "exceed this limit in either direction, but sometimes it might." "\n"
+        "" "\n"
+        "Drive at requested speed, acceleration and jerk (the 1st, 2nd and" "\n"
+        "3rd derivatives of position). All are measured at the vehicle's" "\n"
+        "center of rotation, typically the center of the rear axle. The" "\n"
+        "controller tries not to exceed these limits in either direction, but" "\n"
+        "sometimes it might." "\n"
+        "" "\n"
+        "Speed is the desired scalar magnitude of the velocity vector." "\n"
+        "Direction is forward unless the sign is negative, indicating reverse." "\n"
+        "" "\n"
+        "Zero acceleration means change speed as quickly as" "\n"
+        "possible. Positive acceleration indicates a desired absolute" "\n"
+        "magnitude; that includes deceleration." "\n"
+        "" "\n"
+        "Zero jerk means change acceleration as quickly as possible. Positive" "\n"
+        "jerk indicates a desired absolute rate of acceleration change in" "\n"
+        "either direction (increasing or decreasing)." "\n"
+        "" "\n"
+        "desired virtual angle (radians)")
+      float steering_angle;
+
+      @verbatim (language="comment", text=
+        "desired rate of change (radians/s)")
+      float steering_angle_velocity;
+
+      @verbatim (language="comment", text=
+        "desired forward speed (m/s)")
+      float speed;
+
+      @verbatim (language="comment", text=
+        "desired acceleration (m/s^2)")
+      float acceleration;
+
+      @verbatim (language="comment", text=
+        "desired jerk (m/s^3)")
+      float jerk;
+    };
+  };
+};

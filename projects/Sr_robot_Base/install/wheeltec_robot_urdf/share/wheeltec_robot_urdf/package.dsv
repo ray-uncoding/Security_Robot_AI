@@ -1,0 +1,8 @@
+source;share/wheeltec_robot_urdf/hook/cmake_prefix_path.ps1
+source;share/wheeltec_robot_urdf/hook/cmake_prefix_path.dsv
+source;share/wheeltec_robot_urdf/hook/cmake_prefix_path.sh
+source;share/wheeltec_robot_urdf/local_setup.bash
+source;share/wheeltec_robot_urdf/local_setup.dsv
+source;share/wheeltec_robot_urdf/local_setup.ps1
+source;share/wheeltec_robot_urdf/local_setup.sh
+source;share/wheeltec_robot_urdf/local_setup.zsh

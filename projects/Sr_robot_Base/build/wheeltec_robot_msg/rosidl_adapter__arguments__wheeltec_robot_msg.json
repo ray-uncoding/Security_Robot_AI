@@ -1,0 +1,6 @@
+{
+  "package_name": "wheeltec_robot_msg",
+  "non_idl_tuples": [
+    "/home/nvidia/workspace/Sr_robot_Base/wheeltec_robot_msg:msg/Data.msg"
+  ]
+}

@@ -1,0 +1,4 @@
+source;share/wheeltec_robot_kcf/local_setup.bash
+source;share/wheeltec_robot_kcf/local_setup.dsv
+source;share/wheeltec_robot_kcf/local_setup.sh
+source;share/wheeltec_robot_kcf/local_setup.zsh

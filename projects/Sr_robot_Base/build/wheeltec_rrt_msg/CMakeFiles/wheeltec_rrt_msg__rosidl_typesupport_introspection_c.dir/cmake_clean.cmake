@@ -1,0 +1,29 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/wheeltec_rrt_msg/action/detail/change_position__type_support.c.o"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/wheeltec_rrt_msg/action/detail/change_position__type_support.c.o.d"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/wheeltec_rrt_msg/action/detail/find_coloured_box__type_support.c.o"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/wheeltec_rrt_msg/action/detail/find_coloured_box__type_support.c.o.d"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/wheeltec_rrt_msg/action/detail/pick_coloured_box__type_support.c.o"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/wheeltec_rrt_msg/action/detail/pick_coloured_box__type_support.c.o.d"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/wheeltec_rrt_msg/msg/detail/point_array__type_support.c.o"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/wheeltec_rrt_msg/msg/detail/point_array__type_support.c.o.d"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/wheeltec_rrt_msg/srv/detail/delete_shape__type_support.c.o"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_introspection_c.dir/rosidl_typesupport_introspection_c/wheeltec_rrt_msg/srv/detail/delete_shape__type_support.c.o.d"
+  "libwheeltec_rrt_msg__rosidl_typesupport_introspection_c.pdb"
+  "libwheeltec_rrt_msg__rosidl_typesupport_introspection_c.so"
+  "rosidl_typesupport_introspection_c/wheeltec_rrt_msg/action/detail/change_position__rosidl_typesupport_introspection_c.h"
+  "rosidl_typesupport_introspection_c/wheeltec_rrt_msg/action/detail/change_position__type_support.c"
+  "rosidl_typesupport_introspection_c/wheeltec_rrt_msg/action/detail/find_coloured_box__rosidl_typesupport_introspection_c.h"
+  "rosidl_typesupport_introspection_c/wheeltec_rrt_msg/action/detail/find_coloured_box__type_support.c"
+  "rosidl_typesupport_introspection_c/wheeltec_rrt_msg/action/detail/pick_coloured_box__rosidl_typesupport_introspection_c.h"
+  "rosidl_typesupport_introspection_c/wheeltec_rrt_msg/action/detail/pick_coloured_box__type_support.c"
+  "rosidl_typesupport_introspection_c/wheeltec_rrt_msg/msg/detail/point_array__rosidl_typesupport_introspection_c.h"
+  "rosidl_typesupport_introspection_c/wheeltec_rrt_msg/msg/detail/point_array__type_support.c"
+  "rosidl_typesupport_introspection_c/wheeltec_rrt_msg/srv/detail/delete_shape__rosidl_typesupport_introspection_c.h"
+  "rosidl_typesupport_introspection_c/wheeltec_rrt_msg/srv/detail/delete_shape__type_support.c"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang C)
+  include(CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_introspection_c.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()

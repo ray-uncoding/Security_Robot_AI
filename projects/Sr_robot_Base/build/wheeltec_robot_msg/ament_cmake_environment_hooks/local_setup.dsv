@@ -1,0 +1,4 @@
+source;share/wheeltec_robot_msg/environment/ament_prefix_path.sh
+source;share/wheeltec_robot_msg/environment/library_path.sh
+source;share/wheeltec_robot_msg/environment/path.sh
+source;share/wheeltec_robot_msg/environment/pythonpath.sh

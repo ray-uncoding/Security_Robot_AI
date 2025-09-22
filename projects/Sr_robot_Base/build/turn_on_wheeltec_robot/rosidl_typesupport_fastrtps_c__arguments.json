@@ -1,0 +1,19 @@
+{
+  "package_name": "turn_on_wheeltec_robot",
+  "output_dir": "/home/nvidia/workspace/Sr_robot_Base/build/turn_on_wheeltec_robot/rosidl_typesupport_fastrtps_c/turn_on_wheeltec_robot",
+  "template_dir": "/opt/ros/humble/share/rosidl_typesupport_fastrtps_c/resource",
+  "idl_tuples": [
+    "/home/nvidia/workspace/Sr_robot_Base/build/turn_on_wheeltec_robot/rosidl_adapter/turn_on_wheeltec_robot:msg/Position.idl"
+  ],
+  "target_dependencies": [
+    "/opt/ros/humble/lib/rosidl_typesupport_fastrtps_c/rosidl_typesupport_fastrtps_c",
+    "/opt/ros/humble/local/lib/python3.10/dist-packages/rosidl_typesupport_fastrtps_c/__init__.py",
+    "/opt/ros/humble/share/rosidl_typesupport_fastrtps_c/resource/idl__rosidl_typesupport_fastrtps_c.h.em",
+    "/opt/ros/humble/share/rosidl_typesupport_fastrtps_c/resource/idl__type_support_c.cpp.em",
+    "/opt/ros/humble/share/rosidl_typesupport_fastrtps_c/resource/msg__rosidl_typesupport_fastrtps_c.h.em",
+    "/opt/ros/humble/share/rosidl_typesupport_fastrtps_c/resource/msg__type_support_c.cpp.em",
+    "/opt/ros/humble/share/rosidl_typesupport_fastrtps_c/resource/srv__rosidl_typesupport_fastrtps_c.h.em",
+    "/opt/ros/humble/share/rosidl_typesupport_fastrtps_c/resource/srv__type_support_c.cpp.em",
+    "/home/nvidia/workspace/Sr_robot_Base/build/turn_on_wheeltec_robot/rosidl_adapter/turn_on_wheeltec_robot/msg/Position.idl"
+  ]
+}

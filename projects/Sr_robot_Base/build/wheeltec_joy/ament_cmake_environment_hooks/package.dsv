@@ -1,0 +1,4 @@
+source;share/wheeltec_joy/local_setup.bash
+source;share/wheeltec_joy/local_setup.dsv
+source;share/wheeltec_joy/local_setup.sh
+source;share/wheeltec_joy/local_setup.zsh

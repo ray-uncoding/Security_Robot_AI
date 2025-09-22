@@ -1,0 +1,29 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/action/detail/dds_fastrtps/change_position__type_support.cpp.o"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/action/detail/dds_fastrtps/change_position__type_support.cpp.o.d"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/action/detail/dds_fastrtps/find_coloured_box__type_support.cpp.o"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/action/detail/dds_fastrtps/find_coloured_box__type_support.cpp.o.d"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/action/detail/dds_fastrtps/pick_coloured_box__type_support.cpp.o"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/action/detail/dds_fastrtps/pick_coloured_box__type_support.cpp.o.d"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/msg/detail/dds_fastrtps/point_array__type_support.cpp.o"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/msg/detail/dds_fastrtps/point_array__type_support.cpp.o.d"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/srv/detail/dds_fastrtps/delete_shape__type_support.cpp.o"
+  "CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_fastrtps_cpp.dir/rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/srv/detail/dds_fastrtps/delete_shape__type_support.cpp.o.d"
+  "libwheeltec_rrt_msg__rosidl_typesupport_fastrtps_cpp.pdb"
+  "libwheeltec_rrt_msg__rosidl_typesupport_fastrtps_cpp.so"
+  "rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/action/detail/change_position__rosidl_typesupport_fastrtps_cpp.hpp"
+  "rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/action/detail/dds_fastrtps/change_position__type_support.cpp"
+  "rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/action/detail/dds_fastrtps/find_coloured_box__type_support.cpp"
+  "rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/action/detail/dds_fastrtps/pick_coloured_box__type_support.cpp"
+  "rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/action/detail/find_coloured_box__rosidl_typesupport_fastrtps_cpp.hpp"
+  "rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/action/detail/pick_coloured_box__rosidl_typesupport_fastrtps_cpp.hpp"
+  "rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/msg/detail/dds_fastrtps/point_array__type_support.cpp"
+  "rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/msg/detail/point_array__rosidl_typesupport_fastrtps_cpp.hpp"
+  "rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/srv/detail/dds_fastrtps/delete_shape__type_support.cpp"
+  "rosidl_typesupport_fastrtps_cpp/wheeltec_rrt_msg/srv/detail/delete_shape__rosidl_typesupport_fastrtps_cpp.hpp"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang CXX)
+  include(CMakeFiles/wheeltec_rrt_msg__rosidl_typesupport_fastrtps_cpp.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()
