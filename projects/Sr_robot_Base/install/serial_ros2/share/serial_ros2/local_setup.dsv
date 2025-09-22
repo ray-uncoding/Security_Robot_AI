@@ -1,3 +1,0 @@
-source;share/serial_ros2/environment/ament_prefix_path.sh
-source;share/serial_ros2/environment/library_path.sh
-source;share/serial_ros2/environment/path.sh

@@ -1,1 +1,0 @@
-string shape_type

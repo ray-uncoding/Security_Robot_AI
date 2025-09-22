@@ -1,9 +1,0 @@
-/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_robot_urdf/CMakeFiles/uninstall.dir
-/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_robot_urdf/CMakeFiles/wheeltec_robot_urdf_uninstall.dir
-/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_robot_urdf/CMakeFiles/test.dir
-/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_robot_urdf/CMakeFiles/edit_cache.dir
-/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_robot_urdf/CMakeFiles/rebuild_cache.dir
-/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_robot_urdf/CMakeFiles/list_install_components.dir
-/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_robot_urdf/CMakeFiles/install.dir
-/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_robot_urdf/CMakeFiles/install/local.dir
-/home/nvidia/workspace/Sr_robot_Base/build/wheeltec_robot_urdf/CMakeFiles/install/strip.dir

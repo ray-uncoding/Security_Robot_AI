@@ -1,2 +1,0 @@
-/usr/bin/ar qc libserial_ros2.a CMakeFiles/serial_ros2.dir/src/serial.cc.o CMakeFiles/serial_ros2.dir/src/impl/unix.cc.o CMakeFiles/serial_ros2.dir/src/impl/list_ports/list_ports_linux.cc.o
-/usr/bin/ranlib libserial_ros2.a

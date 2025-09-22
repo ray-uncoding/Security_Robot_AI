@@ -1,3 +1,0 @@
-[console_scripts]
-view_frames = tf2_tools.view_frames:main
-
