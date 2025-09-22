@@ -45,8 +45,8 @@ model = genai.GenerativeModel('gemini-1.5-pro')
 
 # 備註: 
 # 這個函式被呼叫後將會執行以下步驟
-# # 1. 根據是否選擇 ROI，決定使用全畫面或 ROI 區域進行 OCR
-# # 2. 使用 ImageProcessingService 進行品質增強
+# 1. 根據是否選擇 ROI，決定使用全畫面或 ROI 區域進行 OCR
+# 2. 使用 ImageProcessingService 進行品質增強
 # 3. 呼叫 Gemini OCR API 進行辨識: 
 # Gemini API Key 請設定在系統環境變數中，或直接替換上方 YOUR_API_KEY_HERE
 # 可於 cmd 中執行: setx GEMINI_API_KEY "你的API金鑰"
