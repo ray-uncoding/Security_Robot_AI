@@ -86,8 +86,8 @@ class GeminiClient:
             log_queue_gemini.put(f"[GeminiClient] Error setting model '{model_name}': {e}")
             return False
 
-    def generate_response(self, prompt):
-        """使用 google.genai API 進行同步文字生成"""
+    def generate_response(self, prompt, generation_config=None):
+        """使用 google.genai API 進行同步文字生成，支援 JSON 模式"""
         if not self.client:
             log_queue_gemini.put("[GeminiClient] Cannot generate response: Client not configured.")
             return "Error: Client not available."
@@ -98,12 +98,21 @@ class GeminiClient:
             # 使用 google.genai API 生成內容
             response = self.client.models.generate_content(
                 model=self.current_model_name,
-                contents=prompt
+                contents=prompt,
+                generation_config=generation_config
             )
             
             log_queue_gemini.put(f"[GeminiClient] Received response from model.")
             
             # 提取回應文字
+            # 優先處理 JSON 格式的回應
+            if generation_config and generation_config.response_mime_type == "application/json":
+                if response and hasattr(response, 'candidates') and response.candidates:
+                    part = response.candidates[0].content.parts[0]
+                    if hasattr(part, 'text') and part.text:
+                        return part.text # 直接回傳 JSON 字串
+            
+            # 處理一般文字回應
             if response and hasattr(response, 'text') and response.text:
                 return response.text
             elif response and hasattr(response, 'candidates') and response.candidates:
