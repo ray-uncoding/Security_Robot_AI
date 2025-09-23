@@ -14,7 +14,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 
 # 1.2 全域變數，決定是否真的控制機器人
-CONTROL_ROBOT = False
+CONTROL_ROBOT = True   # True: 發送 /cmd_vel 控制車子；False: 只印出指令
 
 # ====================================================
 # ========== Step 2 機器人控制 =============
@@ -190,8 +190,7 @@ def test_gemini_json():
     return cmd
 
 # 4.5 完整流程測試
-def run_integration(mic_index):
-    """完整流程：語音 → 辨識文字 → Gemini JSON → 執行控制"""
+def run_integration(mic_index, ros_controller=None):
     r = sr.Recognizer()
     with sr.Microphone(device_index=mic_index) as source:
         r.adjust_for_ambient_noise(source)
@@ -205,10 +204,9 @@ def run_integration(mic_index):
         response = model.generate_content(text)
         cmd = json.loads(response.text)
         print("📦 Gemini 強制 JSON 輸出:", cmd)
-        execute_command_with_ros(cmd)
+        execute_command_with_ros(cmd, ros_controller)   # <── 傳進去
     except Exception as e:
-        print("⚠️ 解析失敗，原始輸出:", response.text if 'response' in locals() else None)
-        print("錯誤訊息:", e)
+        print("⚠️ 解析失敗:", e)
 
 
 # ====================================================
@@ -243,6 +241,12 @@ def execute_command_with_ros(cmd, ros_controller=None):
 if __name__ == "__main__":
     #mic_index = choose_microphone()   # 互動選擇麥克風
     mic_index = 9   # ← 直接指定 index
+
+    if CONTROL_ROBOT:
+        rclpy.init()
+        ros_controller = RobotController()
+    else:
+        ros_controller = None
 
     print("=== 測試選單 ===")
     print("1. 測試麥克風")
