@@ -1,32 +1,41 @@
+# ====================================================
+# ========== Step 1 基本匯入與初始化 =============
+# ====================================================
+
 import os
-from pathlib import Path
-import launch
-from launch.actions import SetEnvironmentVariable
-from ament_index_python.packages import get_package_share_directory
-from launch import LaunchDescription
+from pathlib import Path                                                        # 用於處理檔案路徑
+import launch                                                                   # ROS2 的啟動系統
+from launch.actions import SetEnvironmentVariable                               # 用於設定環境變數
+from ament_index_python.packages import get_package_share_directory             # 用於取得 ROS2 套件的分享目錄
+from launch import LaunchDescription                                            # 用於描述啟動設定
 from launch.actions import (DeclareLaunchArgument, GroupAction,
-                            IncludeLaunchDescription, SetEnvironmentVariable)
-from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PythonExpression
-from launch_ros.actions import PushRosNamespace
-import launch_ros.actions
-from launch.conditions import IfCondition
-from launch.conditions import UnlessCondition
+                            IncludeLaunchDescription, SetEnvironmentVariable)   # 用於啟動其他 launch 檔案
+from launch.launch_description_sources import PythonLaunchDescriptionSource     # 用於包含其他 Python launch 檔案
+from launch.substitutions import LaunchConfiguration, PythonExpression          # 用於處理啟動參數
+from launch_ros.actions import PushRosNamespace                                 # 用於設定 ROS 命名空間
+import launch_ros.actions                                                       # ROS2 的啟動系統
+from launch.conditions import IfCondition                                       # 用於條件啟動
+from launch.conditions import UnlessCondition                                   # 用於條件啟動
 
+# ====================================================
+# ========== Step 2 設定 Launch 參數 =============
+# ====================================================
+
+# 2.1 生成 Launch 描述
 def generate_launch_description():
-    # Get the launch directory
-    bringup_dir = get_package_share_directory('turn_on_wheeltec_robot')
-    launch_dir = os.path.join(bringup_dir, 'launch')
+    
+    bringup_dir = get_package_share_directory('turn_on_wheeltec_robot')         # 取得 bringup 套件的分享目錄
+    launch_dir = os.path.join(bringup_dir, 'launch')                            # 組合出 launch 目錄的完整路徑
         
-    ekf_config = Path(get_package_share_directory('turn_on_wheeltec_robot'), 'config', 'ekf.yaml')
-    ekf_carto_config = Path(get_package_share_directory('turn_on_wheeltec_robot'), 'config', 'ekf_carto.yaml')
+    ekf_config = Path(get_package_share_directory('turn_on_wheeltec_robot'), 'config', 'ekf.yaml')                      # EKF 設定檔路徑
+    ekf_carto_config = Path(get_package_share_directory('turn_on_wheeltec_robot'), 'config', 'ekf_carto.yaml')          # EKF Carto SLAM 設定檔路徑
 
-    imu_config = Path(get_package_share_directory('turn_on_wheeltec_robot'), 'config', 'imu.yaml')
+    imu_config = Path(get_package_share_directory('turn_on_wheeltec_robot'), 'config', 'imu.yaml')                      # IMU 設定檔路徑
 
     
-    carto_slam = LaunchConfiguration('carto_slam', default='false')
+    carto_slam = LaunchConfiguration('carto_slam', default='false')             # 是否啟用 Carto SLAM 的參數
     
-    carto_slam_dec = DeclareLaunchArgument('carto_slam',default_value='false')
+    carto_slam_dec = DeclareLaunchArgument('carto_slam',default_value='false')  # 宣告啟動參數
             
     wheeltec_robot = IncludeLaunchDescription(
             PythonLaunchDescriptionSource(os.path.join(launch_dir, 'base_serial.launch.py')),
