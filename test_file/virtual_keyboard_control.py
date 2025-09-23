@@ -262,6 +262,15 @@ if __name__ == "__main__":
     elif choice == "3":
         test_gemini_json()
     elif choice == "4":
-        run_integration(mic_index)
+        run_integration(mic_index, ros_controller)
     else:
         print("❌ 無效選項")
+        
+    if CONTROL_ROBOT:
+        try:
+            rclpy.spin(ros_controller)   # 保持 ROS2 node 活著
+        except KeyboardInterrupt:
+            pass
+        finally:
+            ros_controller.destroy_node()
+            rclpy.shutdown()
