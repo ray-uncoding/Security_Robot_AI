@@ -1,0 +1,21 @@
+// generated from rosidl_adapter/resource/action.idl.em
+// with input from wheeltec_rrt_msg/action/FindColouredBox.action
+// generated code does not contain a copyright notice
+
+#include "geometry_msgs/msg/PoseStamped.idl"
+
+module wheeltec_rrt_msg {
+  module action {
+    struct FindColouredBox_Goal {
+      string box_colour;
+    };
+    struct FindColouredBox_Result {
+      geometry_msgs::msg::PoseStamped box_pickup_position;
+    };
+    @verbatim (language="comment", text=
+      "feedback")
+    struct FindColouredBox_Feedback {
+      uint8 structure_needs_at_least_one_member;
+    };
+  };
+};

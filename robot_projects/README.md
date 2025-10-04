@@ -15,3 +15,4 @@ This directory contains all the integrated projects for the Security Robot AI sy
 All projects have been integrated into the Security_Robot_AI main repository while maintaining their individual functionality and structure.
 
 Each project maintains its own requirements.txt and documentation.
+

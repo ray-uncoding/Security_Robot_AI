@@ -34,7 +34,7 @@ find_package(std_srvs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(ackermann_msgs REQUIRED)                         # CHANGE
 find_package(wheeltec_robot_msg REQUIRED)                         # CHANGE
-find_package(serial REQUIRED)
+find_package(serial_ros2 REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -62,7 +62,7 @@ set(wheeltec_robot_node_SRCS
 )
 
 add_executable(wheeltec_robot_node src/wheeltec_robot.cpp src/Quaternion_Solution.cpp)
-ament_target_dependencies(wheeltec_robot_node tf2_ros tf2 tf2_geometry_msgs rclcpp std_msgs nav_msgs std_srvs sensor_msgs ackermann_msgs serial wheeltec_robot_msg)
+ament_target_dependencies(wheeltec_robot_node tf2_ros tf2 tf2_geometry_msgs rclcpp std_msgs nav_msgs std_srvs sensor_msgs ackermann_msgs serial_ros2 wheeltec_robot_msg)
 
 #add_executable(testNode src/test.cpp src/Quaternion_Solution.cpp)
 #ament_target_dependencies(testNode rclcpp std_msgs nav_msgs std_srvs sensor_msgs ackermann_msgs serial wheeltec_robot_msg)

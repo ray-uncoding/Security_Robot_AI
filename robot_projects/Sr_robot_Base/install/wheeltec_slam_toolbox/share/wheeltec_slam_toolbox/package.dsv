@@ -1,0 +1,8 @@
+source;share/wheeltec_slam_toolbox/hook/cmake_prefix_path.ps1
+source;share/wheeltec_slam_toolbox/hook/cmake_prefix_path.dsv
+source;share/wheeltec_slam_toolbox/hook/cmake_prefix_path.sh
+source;share/wheeltec_slam_toolbox/local_setup.bash
+source;share/wheeltec_slam_toolbox/local_setup.dsv
+source;share/wheeltec_slam_toolbox/local_setup.ps1
+source;share/wheeltec_slam_toolbox/local_setup.sh
+source;share/wheeltec_slam_toolbox/local_setup.zsh

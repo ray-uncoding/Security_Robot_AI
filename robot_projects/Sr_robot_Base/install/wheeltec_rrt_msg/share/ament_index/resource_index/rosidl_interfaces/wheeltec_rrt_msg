@@ -1,0 +1,12 @@
+action/ChangePosition.action
+action/ChangePosition.idl
+action/FindColouredBox.action
+action/FindColouredBox.idl
+action/PickColouredBox.action
+action/PickColouredBox.idl
+msg/PointArray.idl
+msg/PointArray.msg
+srv/DeleteShape.idl
+srv/DeleteShape.srv
+srv/DeleteShape_Request.msg
+srv/DeleteShape_Response.msg

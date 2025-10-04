@@ -1,0 +1,15 @@
+// generated from rosidl_adapter/resource/srv.idl.em
+// with input from wheeltec_rrt_msg/srv/DeleteShape.srv
+// generated code does not contain a copyright notice
+
+
+module wheeltec_rrt_msg {
+  module srv {
+    struct DeleteShape_Request {
+      string shape_type;
+    };
+    struct DeleteShape_Response {
+      boolean result;
+    };
+  };
+};

@@ -2,7 +2,7 @@
 
 # since this file is sourced use either the provided AMENT_CURRENT_PREFIX
 # or fall back to the destination set at configure time
-: ${AMENT_CURRENT_PREFIX:="/home/nvidia/workspace/Sr_robot_Base/install/dwb_msgs"}
+: ${AMENT_CURRENT_PREFIX:="/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/dwb_msgs"}
 if [ ! -d "$AMENT_CURRENT_PREFIX" ]; then
   if [ -z "$COLCON_CURRENT_PREFIX" ]; then
     echo "The compile time prefix path '$AMENT_CURRENT_PREFIX' doesn't " \
