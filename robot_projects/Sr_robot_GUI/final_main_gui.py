@@ -31,7 +31,8 @@ class MapWindow(QMainWindow):
 
         # 設定地圖目錄
         # self.map_directory = "C:/Users/ADMIN/OneDrive/gui_python/map"
-        self.map_directory = "/home/sr/wheeltec_ros2/src/wheeltec_robot_nav2/map"
+        # self.map_directory = "/home/sr/wheeltec_ros2/src/wheeltec_robot_nav2/map"
+        self.map_directory = "/home/nvidia/workspace/Security_Robot_AI/robot_projects/wheeltec_robot_nav2/map"
         # 自動掃描目錄中的地圖檔案
         self.yaml_files, self.pgm_files = self.scan_map_files(self.map_directory)
         # 程式啟動時自動執行指令
