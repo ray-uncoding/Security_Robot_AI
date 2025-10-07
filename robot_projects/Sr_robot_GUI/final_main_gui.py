@@ -251,11 +251,24 @@ class MapWindow(QMainWindow):
         button_layout.addLayout(time_layout)
 
     def closeEvent(self, event):
-        """當視窗關閉時，觸發停止導航"""
+        """當視窗關閉時，觸發停止導航並關閉相關進程"""
         print("視窗關閉事件觸發，執行停止操作")
+        
+        # 關閉OCR進程
+        if hasattr(self, 'ocr_process') and self.ocr_process and self.ocr_process.poll() is None:
+            try:
+                print("正在關閉OCR進程...")
+                self.ocr_process.terminate()
+                self.ocr_process.wait()
+                print("OCR進程已關閉")
+            except Exception as e:
+                print(f"關閉OCR進程失敗: {e}")
+        
+        # 停止其他ROS2進程
         subprocess.Popen([
            "xterm", "-e", "bash -c 'pkill -9 -f ros2; exec bash'"
         ])# 在關閉視窗時自動停止導航
+        
         event.accept()  # 接受並繼續關閉視窗
     
     def save_file_with_name(self):
@@ -847,15 +860,45 @@ class MapWindow(QMainWindow):
             self.keyboard_mode_button.setStyleSheet("background-color: gray; color: white; font-size: 16px;")
 
     def open_OCR_window(self):
-        # 開啟新的 terminal > 執行  /usr/bin/python /home/nvidia/workspace/Security_Robot_AI/Insta_OpenCV/trun_on_insta_OCR.py
+        # 開啟新的 terminal > 執行 OCR 系統，並加入資源管理
         try:
-            print("啟動 Insta_OCR 進程...")
-            subprocess.Popen([
-                "xterm", "-e", "bash -c '/usr/bin/python3 /home/nvidia/workspace/Security_Robot_AI/Insta_OpenCV/trun_on_insta_OCR.py; exec bash'"
-            ])
-            print("Insta_OCR 進程已成功啟動")
+            print("啟動 Insta_OCR 進程（優化資源使用）...")
+            
+            # 檢查是否已有OCR進程運行
+            if hasattr(self, 'ocr_process') and self.ocr_process and self.ocr_process.poll() is None:
+                print("OCR進程已在運行，請先關閉現有進程")
+                return
+            
+            # 設定環境變量來優化性能
+            env = os.environ.copy()
+            env['CUDA_VISIBLE_DEVICES'] = '0'  # 確保使用GPU 0
+            env['QT_QPA_PLATFORM'] = 'xcb'    # 使用X11而非Wayland以減少開銷
+            
+            # 啟動OCR進程，設定較低的優先級以避免影響主GUI
+            self.ocr_process = subprocess.Popen([
+                "nice", "-n", "10",  # 設定較低優先級
+                "xterm", "-e", 
+                "bash -c 'echo 設定GPU優化模式... && "
+                "export CUDA_VISIBLE_DEVICES=0 && "
+                "export QT_QPA_PLATFORM=xcb && "
+                "/usr/bin/python3 /home/nvidia/workspace/Security_Robot_AI/Insta_OpenCV/trun_on_insta_OCR.py; exec bash'"
+            ], env=env)
+            
+            print(f"Insta_OCR 進程已成功啟動 (PID: {self.ocr_process.pid})")
+            
         except Exception as e:
             print(f"啟動 Insta_OCR 失敗: {e}")
+            
+    def close_OCR_window(self):
+        """關閉OCR進程"""
+        if hasattr(self, 'ocr_process') and self.ocr_process and self.ocr_process.poll() is None:
+            try:
+                print(f"正在關閉OCR進程 (PID: {self.ocr_process.pid})...")
+                self.ocr_process.terminate()
+                self.ocr_process.wait()
+                print("OCR進程已關閉")
+            except Exception as e:
+                print(f"關閉OCR進程失敗: {e}")
 
     def open_AX8_window(self):
         # 開啟新的 terminal > 假裝執行  /usr/bin/python /home/nvidia/workspace/Security_Robot_AI/AX8/ax8_temp_humi.py 實際上沒有執行

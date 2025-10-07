@@ -14,15 +14,22 @@
         "width": 1920,
         "height": 1440,
         "framerate": 30,
-        "bitrate": 8000
+        "bitrate": 20480
       },
       "stiching": {
         "mode": "pano",
         "mime": "h264",
-        "width": 1920,
-        "height": 960,
+        "width": 3840,
+        "height": 1920,
         "framerate": 30,
-        "bitrate": 4000
+        "bitrate": 10240
+      },
+      "audio": {
+        "mime":"aac", 
+        "sampleFormat":"s16",
+        "channelLayout":"stereo",
+        "samplerate":48000,
+        "bitrate":128
       }
     },
     "stabilization": true

@@ -164,22 +164,22 @@ class InstaController:
         print(f"[start_preview] DEBUG: Original payload: {payload}")
         
         # Modify the payload to include RTMP push URL and standard settings for 30 FPS
-        if "parameters" in payload:
+        #if "parameters" in payload:
             # Update the stiching parameters to use 30 FPS
-            if "stiching" in payload["parameters"]:
-                payload["parameters"]["stiching"]["width"] = 1920   # 保持低解析度
-                payload["parameters"]["stiching"]["height"] = 960   # 保持低解析度
-                payload["parameters"]["stiching"]["framerate"] = 30  # 回到30 FPS
-                payload["parameters"]["stiching"]["bitrate"] = 4000  # 回到標準位元率
-                # Add the RTMP URL for the stitched stream - use host IP that camera can reach
-                payload["parameters"]["stiching"]["liveUrl"] = f"rtmp://192.168.1.11:1935/live/preview"
+         #   if "stiching" in payload["parameters"]:
+          #      payload["parameters"]["stiching"]["width"] = 1920   # 保持低解析度
+           #     payload["parameters"]["stiching"]["height"] = 960   # 保持低解析度
+            #    payload["parameters"]["stiching"]["framerate"] = 30  # 回到30 FPS
+             #   payload["parameters"]["stiching"]["bitrate"] = 4000  # 回到標準位元率
+              #  # Add the RTMP URL for the stitched stream - use host IP that camera can reach
+               # payload["parameters"]["stiching"]["liveUrl"] = f"rtmp://192.168.1.11:1935/live/preview"
 
             # Also update origin parameters for 30 FPS
-            if "origin" in payload["parameters"]:
-                payload["parameters"]["origin"]["framerate"] = 30  # 回到30 FPS
-                payload["parameters"]["origin"]["bitrate"] = 8000  # 回到標準位元率
+            #if "origin" in payload["parameters"]:
+             #   payload["parameters"]["origin"]["framerate"] = 30  # 回到30 FPS
+              #  payload["parameters"]["origin"]["bitrate"] = 8000  # 回到標準位元率
 
-        print(f"[start_preview] DEBUG: Modified payload: {payload}")
+        #print(f"[start_preview] DEBUG: Modified payload: {payload}")
         
         try:
             print(f"[start_preview] DEBUG: Current fingerprint: {self.fingerprint}")

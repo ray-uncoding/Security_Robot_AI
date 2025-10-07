@@ -150,16 +150,15 @@ def camera_process(cam_id, stream_url, width, height, frame_dict, param_dict):
                         
                     # 設定低延遲屬性
                     if cap.isOpened():
-                        cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)  # 設定緩衝區大小為0，最低延遲
-                        cap.set(cv2.CAP_PROP_FPS, 30)  # 回到30 FPS
+                        # cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)  # 設定緩衝區大小為0，最低延遲
+                        # cap.set(cv2.CAP_PROP_FPS, 30)  # 回到30 FPS
                         # 設定更多低延遲屬性
-                        try:
-                            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('H', '2', '6', '4'))
-                            # 強制設定較小解析度以減少處理時間
-                            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 960)
-                            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1920)
-                        except:
-                            pass
+                        
+                        # cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('H', '2', '6', '4'))
+                        # 強制設定較小解析度以減少處理時間
+                        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 480)
+                        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 960)
+                        
                         print(f"[cam{cam_id}] VideoCapture opened with ultra-low-latency settings")
                         
                     if not cap.isOpened():
@@ -215,7 +214,7 @@ def camera_process(cam_id, stream_url, width, height, frame_dict, param_dict):
                     pass
 
 class FrameReceiver:
-    def __init__(self, stream_url=None, cam_ids=None, width=240, height=320, params=None):
+    def __init__(self, stream_url=None, cam_ids=None, width=3840, height=2880, params=None):
         self.stream_url = stream_url
         # 初始化 GPU 處理器
         self.gpu_processor = GPUProcessor()
