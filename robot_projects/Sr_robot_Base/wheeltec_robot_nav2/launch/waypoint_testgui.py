@@ -31,8 +31,9 @@ def main():
     navigator.waitUntilNav2Active()
 
     # 讀取已儲存的點位
-    waypoints = load_waypoints_from_json('/home/sr/gui_ws/saved_points.json')
-
+    # waypoints = load_waypoints_from_json('/home/sr/gui_ws/saved_points.json')
+    waypoints = load_waypoints_from_json('saved_points.json') # 於當前目錄下尋找該檔案
+    
     goal_poses = []
     for wp in waypoints:
         goal_pose = PoseStamped()

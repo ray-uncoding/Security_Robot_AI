@@ -9,7 +9,7 @@ from PIL import Image
 import subprocess
 from PyQt5.QtWidgets import QSpinBox ,QScrollArea
 import os
-
+from PyQt5.QtCore import QTimer
 
 
 class MapWindow(QMainWindow):
@@ -22,6 +22,12 @@ class MapWindow(QMainWindow):
         self.recorded_points = []
         self.directions = []
         self.save_points()
+        self.linear_speed = 0.2  # 初始線速度
+        self.keyboard_mode = False  # 鍵盤模式初始為關閉
+        # 定時檢查終端機狀態
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.check_terminal_status)
+        self.timer.start(1000)  # 每 1 秒檢查一次終端機狀態
 
         # 設定地圖目錄
         # self.map_directory = "C:/Users/ADMIN/OneDrive/gui_python/map"
@@ -57,6 +63,7 @@ class MapWindow(QMainWindow):
         self.delete_file_button = QPushButton("DELETE FILE\n刪除檔案")
         self.load_file_button = QPushButton("LOAD FILE\n載入檔案")
         self.cancel_file_button = QPushButton("CANCEL FILE\n取消檔案")
+        self.keyboard_mode_button = QPushButton("KEYBOARD\n鍵盤控制")
         
         # 綁定按鈕事件
         self.start_button.clicked.connect(self.start_process)
@@ -70,6 +77,7 @@ class MapWindow(QMainWindow):
         self.delete_file_button.clicked.connect(self.delete_file)
         self.load_file_button.clicked.connect(self.load_file)
         self.cancel_file_button.clicked.connect(self.cancel_file)
+        self.keyboard_mode_button.clicked.connect(self.toggle_keyboard_mode)
         
         # 設定按鈕大小和顏色
         self.start_button.setFixedSize(110, 60)
@@ -94,6 +102,13 @@ class MapWindow(QMainWindow):
         self.load_file_button.setStyleSheet("background-color: purple; color: white; font-size: 18px;")
         self.cancel_file_button.setFixedSize(110, 60)
         self.cancel_file_button.setStyleSheet("background-color: darkred; color: white; font-size: 16px;")
+        self.keyboard_mode_button.setFixedSize(110, 60)
+        self.keyboard_mode_button.setStyleSheet("background-color: gray; color: white; font-size: 16px;")
+
+        # 新增水平佈局，用於放置啟動和鍵盤控制按鈕
+        file_buttons_layout0 = QHBoxLayout()
+        file_buttons_layout0.addWidget(self.start_button)
+        file_buttons_layout0.addWidget(self.keyboard_mode_button)
 
         # 新增水平佈局，用於放置儲存檔案和刪除檔案按鈕
         file_buttons_layout1 = QHBoxLayout()
@@ -119,11 +134,13 @@ class MapWindow(QMainWindow):
         button_layout = QVBoxLayout()
         button_layout.setContentsMargins(5, 5, 5, 5)
         button_layout.setSpacing(20)
-        button_layout.addWidget(self.start_button)
+        button_layout.addLayout(file_buttons_layout0)
+        # button_layout.addWidget(self.start_button)
         button_layout.addWidget(self.stop_button)
         button_layout.addWidget(self.home_button)
         button_layout.addStretch() # 增加伸縮空間，確保按鈕在頂部
         # button_layout.addWidget(self.load_file_button)
+        
         button_layout.addLayout(file_buttons_layout1)
         button_layout.addLayout(file_buttons_layout2)
         button_layout.addLayout(file_buttons_layout3)
@@ -214,7 +231,7 @@ class MapWindow(QMainWindow):
         """當視窗關閉時，觸發停止導航"""
         print("視窗關閉事件觸發，執行停止操作")
         subprocess.Popen([
-           "xterm", "-e", "bash -c 'pkill -f ros2; exec bash'"
+           "xterm", "-e", "bash -c 'pkill -9 -f ros2; exec bash'"
         ])# 在關閉視窗時自動停止導航
         event.accept()  # 接受並繼續關閉視窗
     
@@ -319,7 +336,6 @@ class MapWindow(QMainWindow):
         """載入特定檔案並根據檔案名稱自動切換地圖"""
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(
-            # self, "選擇檔案", os.path.expanduser("C:/Users/ADMIN/OneDrive/gui_python"), "JSON Files (*.json)", options=options
             self, "選擇檔案", os.path.expanduser("~/gui_ws"), "JSON Files (*.json)", options=options
         )
         if not file_path:  # 使用者未選擇檔案
@@ -335,7 +351,6 @@ class MapWindow(QMainWindow):
                 raise ValueError("JSON 檔案格式不正確，缺少 'points' 欄位或結構不符")
 
             # 將目前載入的檔案內容同步到 saved_points.json
-            # default_json_path = os.path.expanduser("C:/Users/ADMIN/OneDrive/gui_python/saved_points.json")
             default_json_path = os.path.expanduser("~/gui_ws/saved_points.json")
             with open(default_json_path, 'w') as default_file:
                 json.dump(data, default_file, indent=4)
@@ -361,18 +376,18 @@ class MapWindow(QMainWindow):
             # 調用地圖更新邏輯
             self.update_map(index)
 
-            # 清空現有點位以避免重疊
+            # 清空新增點位，但保留載入的點位
             self.recorded_points = []
-            self.label.points.clear()
-            self.label.directions.clear()
+            self.label.new_points = []  # 新增一個列表來記錄新增點
+            self.label.points = []  # 清空繪製的點（重新繪製載入點）
 
-            # 更新 MapLabel 的檔案名稱
-            self.label.set_file_name(file_name)
+            # 設定地圖縮放比例為1.0
+            self.label.scale_factor = 1.0
 
-            #設定地圖縮放比例為1.0
-            self.label.scale_factor=1.0
+            # 處理載入的點位與方向
+            self.label.loaded_points = []  # 紀錄載入的點位
+            self.label.directions.clear()  # 清空方向箭頭後重繪
 
-            # 解析檔案中的點位與方向數據
             for point in data['points']:
                 # 驗證點位是否完整
                 if not all(key in point for key in ['x', 'y', 'z', 'qx', 'qy', 'qz', 'qw']):
@@ -381,11 +396,7 @@ class MapWindow(QMainWindow):
 
                 # 計算像素位置
                 pixel_pos = self.label.world_to_pixel(QPointF(point['x'], point['y']))
-                self.label.points.append(pixel_pos)
-
-                # 更新 recorded_points 並設置 file_loaded 為 True
-                self.recorded_points = data['points']
-                self.file_loaded = True
+                self.label.loaded_points.append(pixel_pos)
 
                 # 計算方向箭頭的終點
                 try:
@@ -400,11 +411,16 @@ class MapWindow(QMainWindow):
                     print(f"計算方向時出錯: {e}, 點位: {point}")
                     continue
 
+            # 將載入的點保存到 `recorded_points`（作為基礎點位）
+            self.recorded_points = data['points']
+            self.file_loaded = True
+
             print(f"成功載入檔案: {file_path}")
             self.save_points()
             self.label.update()  # 觸發重新繪製
         except Exception as e:
             print(f"載入檔案失敗: {e}")
+
 
     def start_ros2_process(self):
         """啟動 ROS2 指令"""
@@ -449,7 +465,9 @@ class MapWindow(QMainWindow):
 
         # 檢查 save_points.json 是否有數據
         # save_points_path = "C:/Users/ADMIN/OneDrive/gui_python/saved_points.json"
-        save_points_path = "/home/sr/gui_ws/saved_points.json"
+        # save_points_path = "/home/sr/gui_ws/saved_points.json"
+        save_points_path = "saved_points.json" # 於當前目錄下尋找該檔案
+        
         if not os.path.exists(save_points_path):
             QMessageBox.warning(self, "警告", "未找到 saved_points.json 檔案，請確認點位是否已保存！")
             return
@@ -464,7 +482,9 @@ class MapWindow(QMainWindow):
         if self.terminal_process is None or self.terminal_process.poll() is not None:
             # 啟動前更新 JSON 檔案
             # default_json_path = "C:/Users/ADMIN/OneDrive/gui_python/saved_points.json"
-            default_json_path = os.path.expanduser("/home/sr/gui_ws/saved_points.json")
+            # default_json_path = os.path.expanduser("/home/sr/gui_ws/saved_points.json")
+            default_json_path = os.path.expanduser("./saved_points.json") # 於當前目錄下尋找該檔案
+            
             self.save_points_to_file(default_json_path)
             print(f"已更新導航點位檔案至: {default_json_path}")
             
@@ -476,16 +496,45 @@ class MapWindow(QMainWindow):
             print(f"啟動的終端機進程 PID: {self.terminal_process.pid}")
         else:
             print("終端機進程已經在運行，無法再次啟動")
-
+    
     @pyqtSlot()
     def stop_process(self):
-        if self.terminal_process:
-            # 結束啟動的單一終端機進程
-            print(f"停止終端機進程 PID: {self.terminal_process.pid}")
-            self.terminal_process.terminate()  # 只結束該特定進程
-            self.terminal_process.wait()  # 等待進程完全終止
-            self.terminal_process = None  # 重置以允許再次啟動
-        print("導航已停止")
+        """停止導航進程，並停用 /bt_navigator"""
+        try:
+            # 1. 停止當前導航終端機進程
+            if self.terminal_process:
+                print(f"停止終端機進程 PID: {self.terminal_process.pid}")
+                self.terminal_process.terminate()  # 終止進程
+                self.terminal_process.wait()  # 等待進程完全終止
+                self.terminal_process = None  # 重置狀態
+            else:
+                print("沒有導航進程在運行")
+
+            # 2. 等待進程完全終止
+            import time
+            for _ in range(5):  # 最多等待 5 秒
+                time.sleep(1)
+                if self.terminal_process is None or self.terminal_process.poll() is not None:
+                    break
+            else:
+                print("進程未完全終止，請手動檢查進程狀態。")
+
+            print("導航進程已停止")
+
+            # 3. 停用 /bt_navigator
+            print("正在停用 /bt_navigator...")
+            deactivate_command = "ros2 lifecycle set /bt_navigator deactivate"
+            subprocess.run(
+                deactivate_command, shell=True, executable='/bin/bash', check=True,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            print("/bt_navigator 已成功停用")
+
+        except subprocess.CalledProcessError as e:
+            print(f"執行停用 /bt_navigator 時出現錯誤: {e.stderr.decode('utf-8')}")
+        except Exception as e:
+            print(f"停止過程中出現未知錯誤: {e}")
+
 
     @pyqtSlot()
     def home_process(self):
@@ -512,6 +561,24 @@ class MapWindow(QMainWindow):
 
         # 顯示成功訊息
         print("已清除所有點位並將原點儲存為新點位")
+
+    @pyqtSlot()
+    def toggle_keyboard_mode(self):
+        """按下鍵盤模式按鈕時，啟動/關閉 ROS2 鍵盤控制"""
+        if self.terminal_process is None or self.terminal_process.poll() is not None:
+            # 終端機未啟動或已結束，啟動 ROS2 鍵盤控制
+            try:
+                print("啟動 ROS2 鍵盤控制進程...")
+                self.terminal_process = subprocess.Popen([
+                    "xterm", "-e", "bash -c 'source ~/wheeltec_ros2/install/setup.bash && ros2 run wheeltec_robot_keyboard wheeltec_keyboard; exec bash'"
+                ])
+                self.keyboard_mode_button.setText("KEYBOARD MODE\n關閉")
+                self.keyboard_mode_button.setStyleSheet("background-color: green; color: white; font-size: 16px;")
+                print(f"鍵盤控制已啟動 (PID: {self.terminal_process.pid})")
+            except Exception as e:
+                print(f"啟動鍵盤控制失敗: {e}")
+        else:
+            print("終端機已在運行，請先關閉終端機再重新啟動。")
 
     @pyqtSlot()
     def toggle_set_point_mode(self):
@@ -562,9 +629,11 @@ class MapWindow(QMainWindow):
 
         # 將格式化後的點位資料存入 saved_points.json
         # with open('C:/Users/ADMIN/OneDrive/gui_python/saved_points.json', 'w') as file:
-        with open('/home/sr/gui_ws/saved_points.json', 'w') as file:
+        #with open('/home/sr/gui_ws/saved_points.json', 'w') as file:
+        #    json.dump({'points': rounded_points}, file, indent=4)
+        with open('saved_points.json', 'w') as file:  # 儲存在當前目錄下
             json.dump({'points': rounded_points}, file, indent=4)
-
+        
         print("已將點位儲存到 saved_points.json")
     
     def save_points_to_file(self, file_path):
@@ -729,6 +798,14 @@ class MapWindow(QMainWindow):
         except subprocess.CalledProcessError as e:
             print(f"加載地圖失敗: {e}")
 
+    def check_terminal_status(self):
+        """檢查終端機進程狀態，若已結束則重置按鈕"""
+        if self.terminal_process and self.terminal_process.poll() is not None:
+            print("終端機已關閉，重置鍵盤模式按鈕")
+            self.terminal_process = None
+            self.keyboard_mode_button.setText("KEYBOARD MODE\n啟用")
+            self.keyboard_mode_button.setStyleSheet("background-color: gray; color: white; font-size: 16px;")
+
 class MapLabel(QLabel):
     def __init__(self, parent):
         super().__init__(parent)
@@ -827,6 +904,15 @@ class MapLabel(QLabel):
         world_y = self.origin[1] + (self.image_height - scaled_py) * self.resolution
         print(f"計算的世界座標: ({world_x}, {world_y})")
         return world_x, world_y
+    
+    def world_points_from_pixels(self, pixel_points):
+        """將像素座標列表轉換為世界座標列表"""
+        world_points = []
+        for pixel in pixel_points:
+            # 使用 pixel_to_world 方法進行轉換
+            world_x, world_y = self.pixel_to_world(pixel)
+            world_points.append({"x": world_x, "y": world_y, "z": 0.0, "qx": 0.0, "qy": 0.0, "qz": 0.0, "qw": 1.0})
+        return world_points
 
     def clear(self):
         """清除顯示的地圖影像"""
@@ -875,10 +961,13 @@ class MapLabel(QLabel):
             
                 # 同步更新目前檔案和 saved_points.json
                 self.sync_points_to_files()
-                print(f"記錄世界座標: ({world_x:.2f}, {world_y:.2f}), 停留時間: {stay_duration} 秒")
                 
             else:
                 # 奇數次點擊：計算方向
+                if not self.points:
+                    print("錯誤：尚未記錄任何點，無法設置方向")
+                    return  # 避免 IndexError
+                
                 start_point = self.points[-1]
                 end_point = event.pos() / self.scale_factor
 
@@ -897,7 +986,7 @@ class MapLabel(QLabel):
 
             # 更新畫面
             self.update()
-            
+        
     def sync_points_to_files(self):
         """同步點位到 saved_points.json"""
         # saved_points_path = os.path.expanduser("C:/Users/ADMIN/OneDrive/gui_python/saved_points.json")
