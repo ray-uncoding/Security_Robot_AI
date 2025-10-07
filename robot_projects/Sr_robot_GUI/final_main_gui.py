@@ -1,3 +1,8 @@
+# ====================================================
+# ========== Step 1 基本匯入與初始化 =============
+# ====================================================
+
+# 1.1 標準庫與第三方套件匯入
 import sys
 import yaml
 import json
@@ -15,15 +20,15 @@ from PyQt5.QtCore import QTimer
 class MapWindow(QMainWindow):
     def __init__(self, yaml_files, pgm_files):
         super().__init__()
-        self.terminal_process = None  # 用於保存終端機進程
-        self.file_loaded = False  # 紀錄是否載入過檔案
-        self.origin = [0, 0]  # 初始化原點座標
-        self.resolution = 0.05  # 初始化地圖解析度（假設為 0.05 米/像素）
+        self.terminal_process = None        # 用於保存終端機進程
+        self.file_loaded = False            # 紀錄是否載入過檔案
+        self.origin = [0, 0]                # 初始化原點座標
+        self.resolution = 0.05              # 初始化地圖解析度（假設為 0.05 米/像素）
         self.recorded_points = []
         self.directions = []
         self.save_points()
-        self.linear_speed = 0.2  # 初始線速度
-        self.keyboard_mode = False  # 鍵盤模式初始為關閉
+        self.linear_speed = 0.2              # 初始線速度
+        self.keyboard_mode = False           # 鍵盤模式初始為關閉
         # 定時檢查終端機狀態
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.check_terminal_status)
@@ -65,7 +70,9 @@ class MapWindow(QMainWindow):
         self.load_file_button = QPushButton("LOAD FILE\n載入檔案")
         self.cancel_file_button = QPushButton("CANCEL FILE\n取消檔案")
         self.keyboard_mode_button = QPushButton("KEYBOARD\n鍵盤控制")
-        
+        self.OCR_window_button = QPushButton("OCR\n文字辨識")
+        self.AX8_window_button = QPushButton("AX8\n熱顯像儀")
+
         # 綁定按鈕事件
         self.start_button.clicked.connect(self.start_process)
         self.stop_button.clicked.connect(self.stop_process)
@@ -79,7 +86,9 @@ class MapWindow(QMainWindow):
         self.load_file_button.clicked.connect(self.load_file)
         self.cancel_file_button.clicked.connect(self.cancel_file)
         self.keyboard_mode_button.clicked.connect(self.toggle_keyboard_mode)
-        
+        self.OCR_window_button.clicked.connect(self.open_OCR_window)
+        self.AX8_window_button.clicked.connect(self.open_AX8_window)
+
         # 設定按鈕大小和顏色
         self.start_button.setFixedSize(110, 60)
         self.start_button.setStyleSheet("background-color: green; color: white; font-size: 18px;")
@@ -105,6 +114,10 @@ class MapWindow(QMainWindow):
         self.cancel_file_button.setStyleSheet("background-color: darkred; color: white; font-size: 16px;")
         self.keyboard_mode_button.setFixedSize(110, 60)
         self.keyboard_mode_button.setStyleSheet("background-color: gray; color: white; font-size: 16px;")
+        self.OCR_window_button.setFixedSize(110, 60)
+        self.OCR_window_button.setStyleSheet("background-color: gray; color: white; font-size: 16px;")
+        self.AX8_window_button.setFixedSize(110, 60)
+        self.AX8_window_button.setStyleSheet("background-color: gray; color: white; font-size: 16px;")
 
         # 新增水平佈局，用於放置啟動和鍵盤控制按鈕
         file_buttons_layout0 = QHBoxLayout()
@@ -131,9 +144,17 @@ class MapWindow(QMainWindow):
         file_buttons_layout4.addWidget(self.load_file_button)
         file_buttons_layout4.addWidget(self.cancel_file_button)
 
+        # 新增水平佈局，用於放置 OCR 視窗按鈕和 AX8 視窗按鈕
+        file_buttons_layout5 = QHBoxLayout()
+        file_buttons_layout5.addWidget(self.OCR_window_button)
+        file_buttons_layout5.addWidget(self.AX8_window_button)
+
         # 建立按鈕佈局
         button_layout = QVBoxLayout()
-        button_layout.setContentsMargins(5, 5, 5, 5)
+        # button_layout.setContentsMargins(5, 5, 5, 5)
+        # 多加兩排按鈕欄位以便擴充
+        button_layout.setContentsMargins(10, 10, 10, 10)
+
         button_layout.setSpacing(20)
         button_layout.addLayout(file_buttons_layout0)
         # button_layout.addWidget(self.start_button)
@@ -146,6 +167,7 @@ class MapWindow(QMainWindow):
         button_layout.addLayout(file_buttons_layout2)
         button_layout.addLayout(file_buttons_layout3)
         button_layout.addLayout(file_buttons_layout4)
+        button_layout.addLayout(file_buttons_layout5)
 
         # 建立數值顯示區域
         self.value_label = QLabel("世界座標: (-, -)", self)
@@ -258,14 +280,14 @@ class MapWindow(QMainWindow):
 
             if response == QMessageBox.Yes:  # 覆蓋原檔案
                 # save_path = f"C:/Users/ADMIN/OneDrive/gui_python/{self.label.current_file_name}"
-                save_path = f"~/gui_ws/{self.label.current_file_name}"
+                save_path = f"~/{self.label.current_file_name}"
                 self.save_points_to_file(save_path)
                 print(f"已覆蓋原檔案：{save_path}")
             elif response == QMessageBox.No:  # 另存為新檔案
                 file_name, ok = QInputDialog.getText(self, "另存為", "請輸入新檔案名稱（不含副檔名）:")
                 if ok and file_name:
                     # save_path = os.path.expanduser(f"C:/Users/ADMIN/OneDrive/gui_python/{current_map_name}_{file_name}.json")
-                    save_path = os.path.expanduser(f"~/gui_ws/{current_map_name}_{file_name}.json")
+                    save_path = os.path.expanduser(f"~/{current_map_name}_{file_name}.json")
                     self.save_points_to_file(save_path)
                     print(f"已儲存至新檔案：{save_path}")
                     # 關閉點位記錄模式
@@ -279,7 +301,7 @@ class MapWindow(QMainWindow):
             file_name, ok = QInputDialog.getText(self, "儲存檔案", "請輸入檔案名稱（不含副檔名）:")
             if ok and file_name:
                 # save_path = os.path.expanduser(f"C:/Users/ADMIN/OneDrive/gui_python/{current_map_name}_{file_name}.json")
-                save_path = os.path.expanduser(f"~/gui_ws/{current_map_name}_{file_name}.json")
+                save_path = os.path.expanduser(f"~/{current_map_name}_{file_name}.json")
                 self.save_points_to_file(save_path)
                 print(f"點位已儲存至: {save_path}")
                 # 關閉點位記錄模式
@@ -337,7 +359,7 @@ class MapWindow(QMainWindow):
         """載入特定檔案並根據檔案名稱自動切換地圖"""
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "選擇檔案", os.path.expanduser("~/gui_ws"), "JSON Files (*.json)", options=options
+            self, "選擇檔案", os.path.expanduser("~"), "JSON Files (*.json)", options=options
         )
         if not file_path:  # 使用者未選擇檔案
             print("未選擇檔案")
@@ -352,7 +374,7 @@ class MapWindow(QMainWindow):
                 raise ValueError("JSON 檔案格式不正確，缺少 'points' 欄位或結構不符")
 
             # 將目前載入的檔案內容同步到 saved_points.json
-            default_json_path = os.path.expanduser("~/gui_ws/saved_points.json")
+            default_json_path = os.path.expanduser("~/saved_points.json")
             with open(default_json_path, 'w') as default_file:
                 json.dump(data, default_file, indent=4)
             print(f"已同步檔案內容到: {default_json_path}")
@@ -429,8 +451,13 @@ class MapWindow(QMainWindow):
 
         try:
             # 組合要執行的指令
-            command = "cd ~/wheeltec_ros2 && source install/setup.bash && ros2 launch wheeltec_nav2 wheeltec_nav2.launch.py"
-            
+            # command = "cd ~/wheeltec_ros2 && source install/setup.bash && ros2 launch wheeltec_nav2 wheeltec_nav2.launch.py"
+            # command 順序為：退回上一層目錄（robot_projects）> 進入 Sr_robot_Base (原本的 whellrtec_ros2) > 執行指令
+            # command = "cd ~/robot_projects && cd Sr_robot_Base && source install/setup.bash && ros2 launch wheeltec_nav2 wheeltec_nav2.launch.py"
+            # 保險起見，改成絕對路徑
+            command = "cd /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base && source install/setup.bash && ros2 launch wheeltec_nav2 wheeltec_nav2.launch.py"
+            print(f"執行指令: {command}")
+
             # 使用 subprocess.Popen 來啟動 ROS2 進程，這樣不會阻塞主程式
             subprocess.Popen(f"bash -c '{command}'", shell=True, executable='/bin/bash')
 
@@ -490,10 +517,16 @@ class MapWindow(QMainWindow):
             print(f"已更新導航點位檔案至: {default_json_path}")
             
             # 啟動導航進程
+            # self.terminal_process = subprocess.Popen([
+            #     "xterm", "-e", "bash -c 'cd ~/wheeltec_ros2 && source install/setup.bash && "
+            #     "/bin/python3.10 /home/sr/wheeltec_ros2/src/wheeltec_robot_nav2/launch/waypoint_testgui_time.py; exec bash'"
+            # ])
+            # 以上是舊的路徑，更新如下：
             self.terminal_process = subprocess.Popen([
-                "xterm", "-e", "bash -c 'cd ~/wheeltec_ros2 && source install/setup.bash && "
-                "/bin/python3.10 /home/sr/wheeltec_ros2/src/wheeltec_robot_nav2/launch/waypoint_testgui_time.py; exec bash'"
+                "xterm", "-e", "bash -c 'cd /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base && source install/setup.bash && "
+                "/bin/python3.10 /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/src/wheeltec_robot_nav2/launch/waypoint_testgui_time.py; exec bash'"
             ])
+
             print(f"啟動的終端機進程 PID: {self.terminal_process.pid}")
         else:
             print("終端機進程已經在運行，無法再次啟動")
@@ -570,9 +603,15 @@ class MapWindow(QMainWindow):
             # 終端機未啟動或已結束，啟動 ROS2 鍵盤控制
             try:
                 print("啟動 ROS2 鍵盤控制進程...")
+                
+                # self.terminal_process = subprocess.Popen([
+                #     "xterm", "-e", "bash -c 'source ~/wheeltec_ros2/install/setup.bash && ros2 run wheeltec_robot_keyboard wheeltec_keyboard; exec bash'"
+                # ])
+                # 以上是舊的路徑，更新如下：
                 self.terminal_process = subprocess.Popen([
-                    "xterm", "-e", "bash -c 'source ~/wheeltec_ros2/install/setup.bash && ros2 run wheeltec_robot_keyboard wheeltec_keyboard; exec bash'"
+                    "xterm", "-e", "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 run wheeltec_robot_keyboard wheeltec_keyboard; exec bash'"
                 ])
+
                 self.keyboard_mode_button.setText("KEYBOARD MODE\n關閉")
                 self.keyboard_mode_button.setStyleSheet("background-color: green; color: white; font-size: 16px;")
                 print(f"鍵盤控制已啟動 (PID: {self.terminal_process.pid})")
@@ -665,7 +704,7 @@ class MapWindow(QMainWindow):
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(
             # self, "選擇要刪除的檔案", os.path.expanduser("C:/Users/ADMIN/OneDrive/gui_python"), "JSON Files (*.json)", options=options
-            self, "選擇要刪除的檔案", os.path.expanduser("~/gui_ws"), "JSON Files (*.json)", options=options
+            self, "選擇要刪除的檔案", os.path.expanduser("~"), "JSON Files (*.json)", options=options
         )
         if not file_path:  # 如果未選擇檔案
             print("未選擇檔案")
@@ -691,7 +730,7 @@ class MapWindow(QMainWindow):
     def load_saved_points(self):
         """載入預設點位檔案"""
         # default_file_path = os.path.expanduser("C:/Users/ADMIN/OneDrive/gui_python/saved_points.json")
-        default_file_path = os.path.expanduser("~/gui_ws/saved_points.json")
+        default_file_path = os.path.expanduser("~/saved_points.json")
         try:
             with open(default_file_path, 'r') as file:
                 data = json.load(file)
@@ -806,6 +845,29 @@ class MapWindow(QMainWindow):
             self.terminal_process = None
             self.keyboard_mode_button.setText("KEYBOARD MODE\n啟用")
             self.keyboard_mode_button.setStyleSheet("background-color: gray; color: white; font-size: 16px;")
+
+    def open_OCR_window(self):
+        # 開啟新的 terminal > 執行  /usr/bin/python /home/nvidia/workspace/Security_Robot_AI/Insta_OpenCV/trun_on_insta_OCR.py
+        try:
+            print("啟動 Insta_OCR 進程...")
+            subprocess.Popen([
+                "xterm", "-e", "bash -c '/usr/bin/python3 /home/nvidia/workspace/Security_Robot_AI/Insta_OpenCV/trun_on_insta_OCR.py; exec bash'"
+            ])
+            print("Insta_OCR 進程已成功啟動")
+        except Exception as e:
+            print(f"啟動 Insta_OCR 失敗: {e}")
+
+    def open_AX8_window(self):
+        # 開啟新的 terminal > 假裝執行  /usr/bin/python /home/nvidia/workspace/Security_Robot_AI/AX8/ax8_temp_humi.py 實際上沒有執行
+        try:
+            print("啟動 AX8 進程...")
+            subprocess.Popen([
+                # "xterm", "-e", "bash -c '/usr/bin/python3 /home/nvidia/workspace/Security_Robot_AI/AX8/ax8_temp_humi.py; exec bash'"
+                "xterm", "-e", "bash -c 'echo AX8 假裝執行中...; exec bash'"
+            ])
+            print("AX8 進程已成功啟動")
+        except Exception as e:
+            print(f"啟動 AX8 失敗: {e}")
 
 class MapLabel(QLabel):
     def __init__(self, parent):
@@ -991,7 +1053,7 @@ class MapLabel(QLabel):
     def sync_points_to_files(self):
         """同步點位到 saved_points.json"""
         # saved_points_path = os.path.expanduser("C:/Users/ADMIN/OneDrive/gui_python/saved_points.json")
-        saved_points_path = os.path.expanduser(f"~/gui_ws/saved_points.json")
+        saved_points_path = os.path.expanduser(f"~/saved_points.json")
         self.window().save_points_to_file(saved_points_path)
         print("已同步更新至 saved_points.json")
 

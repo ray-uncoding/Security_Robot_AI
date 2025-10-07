@@ -90,7 +90,11 @@ class MapBuilderWindow(QMainWindow):
 
     def start_mapping(self):
         try:
-            self.mapping_process = subprocess.Popen("bash -c 'cd ~/wheeltec_ros2 && source install/setup.bash && ros2 launch wheeltec_slam_toolbox online_async_launch.py'", shell=True, executable='/bin/bash')
+            # self.mapping_process = subprocess.Popen("bash -c 'cd ~/wheeltec_ros2 && source install/setup.bash && ros2 launch wheeltec_slam_toolbox online_async_launch.py'", shell=True, executable='/bin/bash')
+            # 以上是舊的路徑，更新如下：
+            self.mapping_process = subprocess.Popen("bash -c 'cd ~/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base && source install/setup.bash && ros2 launch wheeltec_slam_toolbox online_async_launch.py'", shell=True, executable='/bin/bash')
+             # 以上指令會在背景啟動建圖進程
+            
             self.status_label.setText("建圖啟動中...")
         except Exception as e:
             QMessageBox.critical(self, 'Error', f"啟動建圖失敗: {e}")
@@ -101,16 +105,27 @@ class MapBuilderWindow(QMainWindow):
             QMessageBox.warning(self, 'Warning', "請輸入地圖名稱")
             return
 
-        save_path = f"/home/sr/wheeltec_ros2/src/wheeltec_robot_nav2/map/{map_name}"
-
+        # save_path = f"/home/sr/wheeltec_ros2/src/wheeltec_robot_nav2/map/{map_name}"
+        # 以上是舊的路徑，更新如下：
+        save_path = f"/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/src/wheeltec_robot_nav2/map/{map_name}"
+         # 不需要副檔名，map_saver_cli 會自動添加 .pgm 和 .yaml
+    
         try:
-            self.save_map_process = subprocess.Popen(f"bash -c 'cd ~/wheeltec_ros2 && source install/setup.bash && ros2 run nav2_map_server map_saver_cli -f {save_path}'", shell=True, executable='/bin/bash')
+            # self.save_map_process = subprocess.Popen(f"bash -c 'cd ~/wheeltec_ros2 && source install/setup.bash && ros2 run nav2_map_server map_saver_cli -f {save_path}'", shell=True, executable='/bin/bash')
+            # 以上是舊的路徑，更新如下：
+            self.save_map_process = subprocess.Popen(f"bash -c 'cd ~/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base && source install/setup.bash && ros2 run nav2_map_server map_saver_cli -f {save_path}'", shell=True, executable='/bin/bash')
+             # 以上指令會在背景啟動保存地圖進程
+            
             self.status_label.setText(f"地圖保存至 {save_path}")
         except Exception as e:
             QMessageBox.critical(self, 'Error', f"保存地圖失敗: {e}")
 
     def view_existing_maps(self):
-        map_directory = "/home/sr/wheeltec_ros2/src/wheeltec_robot_nav2/map"
+        # map_directory = "/home/sr/wheeltec_ros2/src/wheeltec_robot_nav2/map"
+        # 以上是舊的路徑，更新如下：
+        map_directory = "/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/src/wheeltec_robot_nav2/map"
+         # 確保路徑正確
+
         try:
             map_files = sorted([f for f in os.listdir(map_directory) if f.endswith('.pgm')])
             if map_files:
@@ -245,7 +260,12 @@ class MapBuilderWindow(QMainWindow):
             self.scale_label.setText("比例尺: 未知")
 
     def delete_map(self):
-        map_directory = "/home/sr/wheeltec_ros2/src/wheeltec_robot_nav2/map"
+        # map_directory = "/home/sr/wheeltec_ros2/src/wheeltec_robot_nav2/map"
+        # 以上是舊的路徑，更新如下：
+        map_directory = "/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/src/wheeltec_robot_nav2/map"
+         # 確保路徑正確
+        
+        
         try:
             map_files = [f for f in os.listdir(map_directory) if f.endswith('.yaml') or f.endswith('.pgm')]
             if not map_files:

@@ -55,10 +55,10 @@ class InstaController:
                     # For the bundled windows version, taskkill is effective
                     subprocess.run(['taskkill', '/F', '/IM', 'nginx.exe'], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 else: # Linux/macOS
-                    # Use 'nginx -s quit' for graceful shutdown. It's okay if it fails (if not running).
-                    # This will stop the master process started by the system.
-                    subprocess.run(['sudo', 'nginx', '-s', 'quit'], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                
+                    # Use 'nginx -s quit' for graceful shutdown with sudo and auto password
+                    process = subprocess.Popen(['sudo', '-S', '/usr/sbin/nginx', '-s', 'quit'], 
+                                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    process.communicate(input=b'nvidia\n')
                 time.sleep(1) # Give it a moment to shut down.
                 print("[_manage_nginx] Sent stop signal to any running Nginx.")
             except Exception as e:
@@ -75,9 +75,10 @@ class InstaController:
                     nginx_cwd = os.path.dirname(nginx_path)
                     subprocess.Popen([nginx_path], cwd=nginx_cwd, creationflags=subprocess.CREATE_NEW_CONSOLE)
                 else: # Linux/macOS
-                    # Start nginx with our specific config file.
-                    subprocess.Popen(['sudo', 'nginx', '-c', conf_path])
-                
+                    # Start nginx with sudo and auto password input
+                    process = subprocess.Popen(['sudo', '-S', '/usr/sbin/nginx'], 
+                                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    process.communicate(input=b'nvidia\n')
                 time.sleep(2) # Wait for Nginx to initialize.
                 is_running = any(nginx_process_name in p.name().lower() for p in psutil.process_iter(['name']))
                 if is_running:
@@ -91,10 +92,12 @@ class InstaController:
             print(f"[_manage_nginx] Stopping Nginx instance (started with project config)...")
             try:
                 # The most reliable way to stop the instance we started is with the same config file.
-                if os_type == "Windows":
-                     subprocess.run(['taskkill', '/F', '/IM', 'nginx.exe'], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                else:
-                    subprocess.run(['sudo', 'nginx', '-c', conf_path, '-s', 'quit'], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+             if os_type == "Windows":
+                 subprocess.run(['taskkill', '/F', '/IM', 'nginx.exe'], check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+             else:
+                process = subprocess.Popen(['sudo', '-S', '/usr/sbin/nginx', '-s', 'quit'], 
+                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                process.communicate(input=b'nvidia\n')
                 
                 print("[_manage_nginx] Nginx stop signal sent.")
             except Exception as e:
@@ -160,22 +163,22 @@ class InstaController:
         
         print(f"[start_preview] DEBUG: Original payload: {payload}")
         
-        # Modify the payload to include RTMP push URL and higher quality settings
+        # Modify the payload to include RTMP push URL and standard settings for 30 FPS
         if "parameters" in payload:
-            # Update the stiching parameters to use higher quality settings and add RTMP URL
+            # Update the stiching parameters to use 30 FPS
             if "stiching" in payload["parameters"]:
-                payload["parameters"]["stiching"]["width"] = 3840
-                payload["parameters"]["stiching"]["height"] = 1920
-                payload["parameters"]["stiching"]["framerate"] = 30
-                payload["parameters"]["stiching"]["bitrate"] = 8000  # 8Mbps
+                payload["parameters"]["stiching"]["width"] = 1920   # 保持低解析度
+                payload["parameters"]["stiching"]["height"] = 960   # 保持低解析度
+                payload["parameters"]["stiching"]["framerate"] = 30  # 回到30 FPS
+                payload["parameters"]["stiching"]["bitrate"] = 4000  # 回到標準位元率
                 # Add the RTMP URL for the stitched stream - use host IP that camera can reach
                 payload["parameters"]["stiching"]["liveUrl"] = f"rtmp://192.168.1.11:1935/live/preview"
-            
-            # Also update origin parameters if needed
+
+            # Also update origin parameters for 30 FPS
             if "origin" in payload["parameters"]:
-                payload["parameters"]["origin"]["framerate"] = 30
-                payload["parameters"]["origin"]["bitrate"] = 20480  # Keep high bitrate for origin
-        
+                payload["parameters"]["origin"]["framerate"] = 30  # 回到30 FPS
+                payload["parameters"]["origin"]["bitrate"] = 8000  # 回到標準位元率
+
         print(f"[start_preview] DEBUG: Modified payload: {payload}")
         
         try:

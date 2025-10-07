@@ -14,15 +14,15 @@
         "width": 1920,
         "height": 1440,
         "framerate": 30,
-        "bitrate": 20480
+        "bitrate": 8000
       },
       "stiching": {
         "mode": "pano",
         "mime": "h264",
-        "width": 3840,
-        "height": 1920,
+        "width": 1920,
+        "height": 960,
         "framerate": 30,
-        "bitrate": 10240
+        "bitrate": 4000
       }
     },
     "stabilization": true

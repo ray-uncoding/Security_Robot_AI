@@ -150,14 +150,17 @@ def camera_process(cam_id, stream_url, width, height, frame_dict, param_dict):
                         
                     # 設定低延遲屬性
                     if cap.isOpened():
-                        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # 設定緩衝區大小為1
-                        cap.set(cv2.CAP_PROP_FPS, 60)  # 提高幀率到60 FPS
-                        # 嘗試設定更多低延遲屬性
+                        cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)  # 設定緩衝區大小為0，最低延遲
+                        cap.set(cv2.CAP_PROP_FPS, 30)  # 回到30 FPS
+                        # 設定更多低延遲屬性
                         try:
                             cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('H', '2', '6', '4'))
+                            # 強制設定較小解析度以減少處理時間
+                            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 960)
+                            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1920)
                         except:
                             pass
-                        print(f"[cam{cam_id}] VideoCapture opened with low-latency settings (60 FPS)")
+                        print(f"[cam{cam_id}] VideoCapture opened with ultra-low-latency settings")
                         
                     if not cap.isOpened():
                         print(f"[cam{cam_id}] VideoCapture open failed, retrying in {reconnect_delay}s")
@@ -180,11 +183,13 @@ def camera_process(cam_id, stream_url, width, height, frame_dict, param_dict):
                     _time.sleep(reconnect_delay)
                     continue
 
-                # 回到簡單有效的緩衝區清理策略
-                for _ in range(5):  # 固定丟棄5幀，經測試的平衡點
+                # 激進的緩衝區清理 - 直接跳過所有積壓的幀
+                skip_count = 0
+                while cap.get(cv2.CAP_PROP_BUFFERSIZE) > 0 and skip_count < 10:
                     ret_temp, frame_temp = cap.read()
                     if ret_temp and frame_temp is not None:
                         frame = frame_temp
+                        skip_count += 1
                     else:
                         break
 
@@ -218,7 +223,7 @@ class FrameReceiver:
         
         # 初始化性能監控
         self.performance_monitor = get_global_performance_monitor()
-        self.frame_rate_controller = FrameRateController(target_fps=60.0)
+        self.frame_rate_controller = FrameRateController(target_fps=30.0)
         
         # If a specific stream_url is provided, force single-camera preview mode.
         if self.stream_url:
