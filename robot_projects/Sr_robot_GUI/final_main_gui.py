@@ -901,16 +901,37 @@ class MapWindow(QMainWindow):
                 print(f"關閉OCR進程失敗: {e}")
 
     def open_AX8_window(self):
-        # 開啟新的 terminal > 假裝執行  /usr/bin/python /home/nvidia/workspace/Security_Robot_AI/AX8/ax8_temp_humi.py 實際上沒有執行
+        # terminal > /usr/bin/python /home/nvidia/workspace/Security_Robot_AI/ax8/ax8_worker.py
         try:
             print("啟動 AX8 進程...")
-            subprocess.Popen([
-                # "xterm", "-e", "bash -c '/usr/bin/python3 /home/nvidia/workspace/Security_Robot_AI/AX8/ax8_temp_humi.py; exec bash'"
-                "xterm", "-e", "bash -c 'echo AX8 假裝執行中...; exec bash'"
+            
+            # 檢查是否已有AX8進程運行
+            if hasattr(self, 'ax8_process') and self.ax8_process and self.ax8_process.poll() is None:
+                print("AX8進程已在運行，請先關閉現有進程")
+                self.close_AX8_window()
+                return
+            
+            self.ax8_process = subprocess.Popen([
+                "xterm", "-e", 
+                "bash -c 'echo 啟動 AX8... && "
+                "/usr/bin/python3 /home/nvidia/workspace/Security_Robot_AI/ax8/ax8_worker.py; exec bash'"
             ])
-            print("AX8 進程已成功啟動")
+            
+            print(f"AX8 進程已成功啟動 (PID: {self.ax8_process.pid})")
         except Exception as e:
             print(f"啟動 AX8 失敗: {e}")
+    
+    def close_AX8_window(self):
+        """關閉AX8進程"""
+        if hasattr(self, 'ax8_process') and self.ax8_process and self.ax8_process.poll() is None:
+            try:
+                print(f"正在關閉AX8進程 (PID: {self.ax8_process.pid})...")
+                self.ax8_process.terminate()
+                self.ax8_process.wait()
+                print("AX8進程已關閉")
+            except Exception as e:
+                print(f"關閉AX8進程失敗: {e}")
+
 
 class MapLabel(QLabel):
     def __init__(self, parent):
