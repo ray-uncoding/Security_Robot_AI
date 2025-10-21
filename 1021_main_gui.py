@@ -34,9 +34,6 @@ class MapWindow(QMainWindow):
         self.recorded_points = []               # 用於保存記錄的點位
         self.directions = []                    # 用於保存點位方向
         self.save_points()                      # 嘗試保存初始空點位，save_points 方法內會處理空點位情況
-        
-        self.gui_ws_path = os.path.expanduser("~/gui_ws")  # 儲存 gui_ws 的絕對路徑
-        os.makedirs(self.gui_ws_path, exist_ok=True)  # 確保目錄存在
 
         # 1.2 終端機狀態設定
         self.terminal_process = None                                # 用於保存終端機進程
@@ -61,7 +58,13 @@ class MapWindow(QMainWindow):
         # 1.4 地圖檔案設定
         # 此路徑在專案下的 robot_projects/Sr_robot_Base/wheeltec_robot_nav2/map
         # 而本檔案在根目錄下 1021_main_gui.py
-        bringup_dir = os.path.join(os.path.dirname(__file__), 'robot_projects', 'Sr_robot_Base', 'wheeltec_robot_nav2')
+        
+        # 取得腳本檔案所在目錄的絕對路徑
+        script_directory = os.path.dirname(os.path.abspath(__file__))
+        # 從該絕對路徑建構目標目錄的路徑
+        bringup_dir = os.path.join(script_directory, 'robot_projects', 'Sr_robot_Base', 'wheeltec_robot_nav2')
+        
+        # bringup_dir = os.path.join(os.path.dirname(__file__), 'robot_projects', 'Sr_robot_Base', 'wheeltec_robot_nav2')
         self.map_directory = os.path.join(bringup_dir, 'map')
         self.yaml_files, self.pgm_files = self.scan_map_files(self.map_directory)   # 掃描該目錄下的 YAML 和 PGM 檔案，返回兩個列表
         
