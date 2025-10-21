@@ -230,12 +230,12 @@ class MapWindow(QMainWindow):
         button_layout.setSpacing(20)                    # 設定按鈕間距，間距為 20 像素
         button_layout.addLayout(file_buttons_layout0)   # 添加 [啟動] 和 [鍵盤控制] 按鈕佈局
         button_layout.addLayout(file_buttons_layout1)   # 添加 [停止] 和 [回原點] 按鈕佈局
-        button_layout.addStretch()                      # 增加伸縮空間，確保按鈕在頂部
         button_layout.addLayout(file_buttons_layout2)   # 添加 [設定點位] 和 [放大] 按鈕佈局
         button_layout.addLayout(file_buttons_layout3)   # 添加 [清除] 和 [縮小] 按鈕佈局
         button_layout.addLayout(file_buttons_layout4)   # 添加 [儲存] 和 [刪除] 按鈕佈局
         button_layout.addLayout(file_buttons_layout5)   # 添加 [載入] 和 [取消] 按鈕佈局
         button_layout.addLayout(file_buttons_layout6)   # 添加 [INSTA] 和 [AX8] 按鈕佈局
+        button_layout.addLayout(file_buttons_layout7)   # 添加 [系統初始化] 按鈕佈局
 
         # ---------------------------- 1.7.3 資訊顯示區域  ---------------------------
         # ---------------------------------------------------------------------------
