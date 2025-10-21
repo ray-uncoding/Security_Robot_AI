@@ -23,7 +23,7 @@ class MapWindow(QMainWindow):
         super().__init__()                      # 初始化父類別 QMainWindow，這是 QT 視窗的基礎類別
         
         # 1.0 路徑初始化
-        self.gui_ws_path = os.path.expanduser("~/gui_ws")
+        self.gui_ws_path = os.path.expanduser("/home/nvidia/workspace/Security_Robot_AI/gui_ws")
         os.makedirs(self.gui_ws_path, exist_ok=True)
 
         
@@ -59,13 +59,8 @@ class MapWindow(QMainWindow):
         # 此路徑在專案下的 robot_projects/Sr_robot_Base/wheeltec_robot_nav2/map
         # 而本檔案在根目錄下 1021_main_gui.py
         
-        # 取得腳本檔案所在目錄的絕對路徑
-        script_directory = os.path.dirname(os.path.abspath(__file__))
-        # 從該絕對路徑建構目標目錄的路徑
-        bringup_dir = os.path.join(script_directory, 'robot_projects', 'Sr_robot_Base', 'wheeltec_robot_nav2')
-        
-        # bringup_dir = os.path.join(os.path.dirname(__file__), 'robot_projects', 'Sr_robot_Base', 'wheeltec_robot_nav2')
-        self.map_directory = os.path.join(bringup_dir, 'map')
+        # 絕對路徑
+        self.map_directory = "/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/map"
         self.yaml_files, self.pgm_files = self.scan_map_files(self.map_directory)   # 掃描該目錄下的 YAML 和 PGM 檔案，返回兩個列表
         
         # 1.5 視窗初始化
@@ -389,14 +384,14 @@ class MapWindow(QMainWindow):
             # 指令如下:
             # 1. xterm
             # 2. -e
-            # 3. bash -c 'cd ~/robot_projects/Sr_robot_Base && source install/setup.bash &&
+            # 3. bash -c 'cd /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base && source install/setup.bash &&
             #    ros2 launch wheeltec_robot_nav2 waypoint_testgui_time.py; exec bash'
 
             process_name = "waypoint"
             command = [
                 "xterm", "-T", "waypoint", "-e",
                 "bash", "-c",
-                "source ~/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_robot_nav2 waypoint_testgui_time.py; exec bash"
+                "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_robot_nav2 waypoint_testgui_time.py; exec bash"
             ]
             self.toggle_process(process_name, command)
 
@@ -761,14 +756,14 @@ class MapWindow(QMainWindow):
             # 指令如下:
             # 1. xterm
             # 2. -e
-            # 3. bash -c 'cd ~/robot_projects/Sr_robot_Base && source install/setup.bash &&
+            # 3. bash -c 'cd /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base && source install/setup.bash &&
             #    ros2 run wheeltec_robot_keyboard wheeltec_keyboard.py; exec bash'
 
             process_name = "ros2_keyboard_teleop"
             command = [
                 "xterm", "-T", "Keyboard Teleop", "-e",  # -T 設置視窗標題
                 "bash", "-c", 
-                "source ~/robot_projects/Sr_robot_Base/install/setup.bash && ros2 run wheeltec_robot_keyboard wheeltec_keyboard.py; exec bash"
+                "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 run wheeltec_robot_keyboard wheeltec_keyboard.py; exec bash"
             ]
             self.toggle_process(process_name, command)
 
@@ -798,7 +793,7 @@ class MapWindow(QMainWindow):
             command = [
                 "xterm", "-T", "INSTA Control", "-e",  # -T 設置視窗標題
                 "bash", "-c", 
-                "python3 ~/Insta_OpenCV/trun_on_insta_OCR.py; exec bash"
+                "python3 /home/nvidia/workspace/Security_Robot_AI/Insta_OpenCV/trun_on_insta_OCR.py; exec bash"
             ]
             self.toggle_process(process_name, command)
 
@@ -827,7 +822,7 @@ class MapWindow(QMainWindow):
             command = [
                 "xterm", "-T", "AX8 Control", "-e",  # -T 設置視窗標題
                 "bash", "-c", 
-                "python3 ~/ax8/ax8_worker.py; exec bash"
+                "python3 /home/nvidia/workspace/Security_Robot_AI/ax8/ax8_worker.py; exec bash"
             ]
             self.toggle_process(process_name, command)
 
@@ -858,7 +853,7 @@ class MapWindow(QMainWindow):
             command = [
                 "xterm", "-T", "wheeltec_nav2", "-e",  # -T 設置視窗標題
                 "bash", "-c", 
-                "source ~/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_nav2 wheeltec_nav2.py; exec bash"
+                "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_nav2 wheeltec_nav2.py; exec bash"
             ]
             
             self.toggle_process(process_name, command)
@@ -1113,7 +1108,7 @@ class MapLabel(QLabel):
         self.directions = [] # 儲存所有的方向箭頭
         self.current_file_name = None  # 紀錄當前檔案名稱
         self.current_map_file = None  # 儲存當前選擇的地圖檔案
-        self.gui_ws_path = os.path.expanduser("~/gui_ws")
+        self.gui_ws_path = os.path.expanduser("/home/nvidia/workspace/Security_Robot_AI/gui_ws")
         os.makedirs(self.gui_ws_path, exist_ok=True)
 
     def update_image(self, pgm_file, image_height, origin, resolution, scale_factor=None):
