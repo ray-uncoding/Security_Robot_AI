@@ -891,21 +891,22 @@ class MapWindow(QMainWindow):
             self.init_system_button.setText("INIT\n初始化中...")
 
             # 1. 啟動雷達
-            print("正在啟動雷達...")
-            lidar_command = [
-                "xterm", "-e",
-                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch turn_on_wheeltec_robot robotandlidar.launch.py; exec bash'"
-            ]
-            self.toggle_process("lidar", lidar_command)
+            #print("正在啟動雷達...")
+            #lidar_command = [
+            #    "xterm", "-e",
+            #    "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch turn_on_wheeltec_robot robotandlidar.launch.py; exec bash'"
+            #]
+            #self.toggle_process("lidar", lidar_command)
 
             # 等待雷達啟動
-            time.sleep(3)
+            #time.sleep(3)
 
             # 2. 啟動導航系統
+            # 他會一併啟動 trun_on_wheeltec_robot 和 lidar 節點
             print("正在啟動導航系統...")
             nav_command = [
                 "xterm", "-e",
-                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_nav2 wheeltec_nav2.py; exec bash'"
+                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_robot_nav2 wheeltec_nav2.launch.py; exec bash'"
             ]
             self.toggle_process("nav2", nav_command)
 
