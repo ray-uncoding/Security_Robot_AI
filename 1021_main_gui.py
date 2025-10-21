@@ -884,34 +884,12 @@ class MapWindow(QMainWindow):
         4. 儲存地圖
         """
         try:
+            
             # 按鈕變色提示正在執行
             self.init_system_button.setStyleSheet("background-color: green; color: white; font-size: 16px;")
             self.init_system_button.setText("INIT\n初始化中...")
 
-            # 1. 啟動雷達
-            #print("正在啟動雷達...")
-            #lidar_command = [
-            #    "xterm", "-e",
-            #    "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch turn_on_wheeltec_robot robotandlidar.launch.py; exec bash'"
-            #]
-            #self.toggle_process("lidar", lidar_command)
-
-            # 等待雷達啟動
-            #time.sleep(3)
-
-            # 2. 啟動導航系統
-            # 他會一併啟動 trun_on_wheeltec_robot 和 lidar 節點
-            # print("正在啟動導航系統...")
-            # nav_command = [
-            #    "xterm", "-e",
-            #    "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_robot_nav2 wheeltec_nav2.launch.py; exec bash'"
-            #]
-            #self.toggle_process("nav2", nav_command)
-
-            # 等待導航系統啟動
-            # time.sleep(3)
-
-            # 2 暫時停用 導航系統，直接進入建圖模式
+            # 暫時停用 導航系統，直接進入建圖模式
             print("暫時停用導航系統，直接進入建圖模式")
             if "nav2" in self.processes and self.processes["nav2"] is not None:
                 try:
@@ -928,17 +906,40 @@ class MapWindow(QMainWindow):
                 finally:
                     self.processes["nav2"] = None
             
+            # 1. 啟動雷達
+            print("正在啟動雷達...")
+            lidar_command = [
+                "xterm", "-e",
+                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch turn_on_wheeltec_robot robotandlidar.launch.py; exec bash'"
+            ]
+            self.toggle_process("lidar", lidar_command)
+
+            # 等待雷達啟動
+            #time.sleep(3)
+
+            # 2. 啟動導航系統
+            # 他會一併啟動 trun_on_wheeltec_robot 和 lidar 節點
+            # print("正在啟動導航系統...")
+            # nav_command = [
+            #    "xterm", "-e",
+            #    "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_robot_nav2 wheeltec_nav2.launch.py; exec bash'"
+            #]
+            #self.toggle_process("nav2", nav_command)
+
+            # 等待導航系統啟動
+            # time.sleep(3)            
+            
             # 等待進程完全終止
             time.sleep(7)
             print("導航系統已停止，準備進入建圖模式")
             
             # 3. 開始建圖
-            print("正在啟動建圖程序...")
-            slam_command = [
-                "xterm", "-T", "slam", "-e",  # -T 設置視窗標題
-                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_slam_toolbox online_async_launch.py; exec bash'"
-            ]
-            self.toggle_process("slam", slam_command)
+            #print("正在啟動建圖程序...")
+            #slam_command = [
+            #    "xterm", "-T", "slam", "-e",  # -T 設置視窗標題
+            #    "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_slam_toolbox online_async_launch.py; exec bash'"
+            #]
+            #self.toggle_process("slam", slam_command)
 
             # 4. 打開鍵盤控制，方便使用者操作機器人進行建圖
             print("啟動鍵盤控制...")
