@@ -42,6 +42,7 @@ class MapWindow(QMainWindow):
         self.timer.start(1000)                                      # 每 1 秒檢查一次終端機狀態
         
         self.processes = {
+            "wheeltec_robot": None,
             "waypoint": None,
             "ros2_keyboard_teleop": None,
             "insta_control": None,
@@ -906,11 +907,21 @@ class MapWindow(QMainWindow):
                 finally:
                     self.processes["nav2"] = None
             
+            time.sleep(3)
+            
+            # 啟動 robot
+            print("正在啟動 wheeltec_robot...")
+            robot_command = [
+                "xterm", "-T", "wheeltec_robot", "-e",
+                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch turn_on_wheeltec_robot turn_on_wheeltec_robot.launch.py; exec bash'"
+            ]
+            self.toggle_process("wheeltec_robot", robot_command)
+
             # 1. 啟動雷達
             print("正在啟動雷達...")
             lidar_command = [
                 "xterm", "-e",
-                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch turn_on_wheeltec_robot robotandlidar.launch.py; exec bash'"
+                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch turn_on_wheeltec_robot wheeltec_lidar.launch.py; exec bash'"
             ]
             self.toggle_process("lidar", lidar_command)
 
