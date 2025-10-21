@@ -889,6 +889,10 @@ class MapWindow(QMainWindow):
             # 按鈕變色提示正在執行
             self.init_system_button.setStyleSheet("background-color: green; color: white; font-size: 16px;")
             self.init_system_button.setText("INIT\n初始化中...")
+            
+            # 暫時關閉雷達
+            print("關閉雷達...")
+            self.close_lidar()
 
             # 暫時停用 導航系統，直接進入建圖模式
             print("暫時停用導航系統，直接進入建圖模式")
@@ -908,49 +912,15 @@ class MapWindow(QMainWindow):
                     self.processes["nav2"] = None
             
             time.sleep(3)
-            
-            # 啟動 robot
-            print("正在啟動 wheeltec_robot...")
-            robot_command = [
-                "xterm", "-T", "wheeltec_robot", "-e",
-                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch turn_on_wheeltec_robot turn_on_wheeltec_robot.launch.py; exec bash'"
-            ]
-            self.toggle_process("wheeltec_robot", robot_command)
-
-            # 1. 啟動雷達
-            print("正在啟動雷達...")
-            lidar_command = [
-                "xterm", "-e",
-                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch turn_on_wheeltec_robot wheeltec_lidar.launch.py; exec bash'"
-            ]
-            self.toggle_process("lidar", lidar_command)
-
-            # 等待雷達啟動
-            #time.sleep(3)
-
-            # 2. 啟動導航系統
-            # 他會一併啟動 trun_on_wheeltec_robot 和 lidar 節點
-            # print("正在啟動導航系統...")
-            # nav_command = [
-            #    "xterm", "-e",
-            #    "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_robot_nav2 wheeltec_nav2.launch.py; exec bash'"
-            #]
-            #self.toggle_process("nav2", nav_command)
-
-            # 等待導航系統啟動
-            # time.sleep(3)            
-            
-            # 等待進程完全終止
-            time.sleep(7)
             print("導航系統已停止，準備進入建圖模式")
             
             # 3. 開始建圖
-            #print("正在啟動建圖程序...")
-            #slam_command = [
-            #    "xterm", "-T", "slam", "-e",  # -T 設置視窗標題
-            #    "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_slam_toolbox online_async_launch.py; exec bash'"
-            #]
-            #self.toggle_process("slam", slam_command)
+            print("正在啟動建圖程序...")
+            slam_command = [
+                "xterm", "-T", "slam", "-e",  # -T 設置視窗標題
+                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_slam_toolbox online_async_launch.py; exec bash'"
+            ]
+            self.toggle_process("slam", slam_command)
 
             # 4. 打開鍵盤控制，方便使用者操作機器人進行建圖
             print("啟動鍵盤控制...")
@@ -973,7 +943,6 @@ class MapWindow(QMainWindow):
             ]
             self.toggle_process("rviz2", rviz_command)
             
-
             # 提示使用者
             QMessageBox.information(self, "系統初始化", 
                 "系統已完成初始化！\n\n" +
@@ -1043,10 +1012,29 @@ class MapWindow(QMainWindow):
             except Exception as e:
                 print(f"啟動進程 '{process_name}' 時發生錯誤: {e}")
 
+
+    # 關閉 A3 雷達馬達
+    def close_lidar(self):
+        """關閉 A3 雷達馬達"""
+        print("正在停止 A3 雷達...")
+        stop_lidar_command = [
+            "bash", "-c",
+            "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 service call /stop_motor std_srvs/srv/Empty '{}'"
+        ]
+        subprocess.run(stop_lidar_command, timeout=5)
+        print("已發送雷達停止命令")
+    
+    
     # 關閉視窗事件
     def closeEvent(self, event):
 
         print("視窗關閉事件觸發，正在清理所有背景進程...")
+        
+        # 首先停止 A3 雷達馬達
+        self.close_lidar()
+        
+        # 等待雷達完全停止
+        time.sleep(2)       
         
         # 取得所有正在運行的進程名稱
         # 使用 list() 是為了避免在迭代過程中修改字典
