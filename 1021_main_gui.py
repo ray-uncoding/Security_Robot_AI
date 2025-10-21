@@ -915,7 +915,20 @@ class MapWindow(QMainWindow):
 
             # 2 暫時停用 導航系統，直接進入建圖模式
             print("暫時停用導航系統，直接進入建圖模式")
-            self.toggle_process("nav2", None)
+            if "nav2" in self.processes and self.processes["nav2"] is not None:
+                try:
+                    print(f"正在停止 nav2 進程 (PID: {self.processes['nav2'].pid})...")
+                    os.killpg(os.getpgid(self.processes["nav2"].pid), signal.SIGTERM)
+                    self.processes["nav2"].wait(timeout=3)
+                    print("nav2 進程已停止")
+                except Exception as e:
+                    print(f"停止 nav2 進程時出錯: {e}")
+                    try:
+                        os.killpg(os.getpgid(self.processes["nav2"].pid), signal.SIGKILL)
+                    except:
+                        pass
+                finally:
+                    self.processes["nav2"] = None
             
             
             # 3. 開始建圖
