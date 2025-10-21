@@ -913,6 +913,11 @@ class MapWindow(QMainWindow):
             # 等待導航系統啟動
             # time.sleep(3)
 
+            # 2 暫時停用 導航系統，直接進入建圖模式
+            print("暫時停用導航系統，直接進入建圖模式")
+            self.toggle_process("nav2", None)
+            
+            
             # 3. 開始建圖
             print("正在啟動建圖程序...")
             slam_command = [
@@ -955,6 +960,14 @@ class MapWindow(QMainWindow):
             # 恢復按鈕狀態
             self.init_system_button.setStyleSheet("background-color: purple; color: white; font-size: 16px;")
             self.init_system_button.setText("INIT\n系統初始化")
+            
+            # 恢復導航系統狀態
+            print("恢復導航系統狀態...")
+            nav_command = [
+                "xterm", "-e",
+                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_nav2 wheeltec_nav2.launch.py; exec bash'"
+            ]
+            self.toggle_process("nav2", nav_command)
 
         except Exception as e:
             print(f"初始化過程出錯: {e}")
