@@ -931,10 +931,10 @@ class MapWindow(QMainWindow):
             
             # 5. 打開 rviz2 以便觀察建圖過程
             # 啟用設定檔案 /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/rviz/wheeltec.rviz
-            print("啟動 rviz2 以觀察建圖過程...")
+            print("啟動 rviz2 以觀察建圖過程...")            
             rviz_command = [
                 "xterm", "-e",
-                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 run rviz2 /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/rviz/wheeltec.rviz; exec bash'"
+                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && rviz2 -d /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/rviz/wheeltec.rviz; exec bash'"
             ]
             self.toggle_process("rviz2", rviz_command)
             
