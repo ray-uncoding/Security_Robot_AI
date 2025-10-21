@@ -903,15 +903,15 @@ class MapWindow(QMainWindow):
 
             # 2. 啟動導航系統
             # 他會一併啟動 trun_on_wheeltec_robot 和 lidar 節點
-            print("正在啟動導航系統...")
-            nav_command = [
-                "xterm", "-e",
-                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_robot_nav2 wheeltec_nav2.launch.py; exec bash'"
-            ]
-            self.toggle_process("nav2", nav_command)
+            # print("正在啟動導航系統...")
+            # nav_command = [
+            #    "xterm", "-e",
+            #    "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_robot_nav2 wheeltec_nav2.launch.py; exec bash'"
+            #]
+            #self.toggle_process("nav2", nav_command)
 
             # 等待導航系統啟動
-            time.sleep(3)
+            # time.sleep(3)
 
             # 3. 開始建圖
             print("正在啟動建圖程序...")
