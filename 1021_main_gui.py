@@ -5,6 +5,7 @@ import json
 import math
 import subprocess
 import time
+import signal
 
 from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QPushButton, QComboBox, QInputDialog, QFileDialog, QMessageBox, QSpinBox ,QScrollArea
 from PyQt5.QtGui import QPixmap, QPainter, QColor, QMouseEvent, QPolygonF,QImage
@@ -35,6 +36,16 @@ class MapWindow(QMainWindow):
         self.timer.timeout.connect(self.check_terminal_status)      # 連接定時器超時信號到檢查函式
         self.timer.start(1000)                                      # 每 1 秒檢查一次終端機狀態
 
+        # 嘗試使用字典來保存多個子進程
+        self.processes = {
+            "turn_on_wheeltec": None,
+            "wheeltec_nav2": None,
+            "waypoint": None,
+            "ros2_keyboard_teleop": None,
+            "insta_control": None,
+            "ax8_control": None
+        }
+
         # 1.3 鍵盤控制設定
         self.linear_speed = 0.2                                     # 初始線速度
         self.keyboard_mode = False                                  # 鍵盤模式初始為關閉
@@ -47,7 +58,7 @@ class MapWindow(QMainWindow):
         self.yaml_files, self.pgm_files = self.scan_map_files(self.map_directory)   # 掃描該目錄下的 YAML 和 PGM 檔案，返回兩個列表
         
         # 1.5 視窗初始化
-        self.start_ros2_process()               # 啟動 ROS2 指令，start_ros2_process 方法內會處理重複啟動情況
+        self.start_wheeltec_nav2_process()      # 啟動 wheeltec_nav2 指令
         self.load_saved_points()                # 嘗試載入先前保存的點位，load_saved_points 方法內會處理檔案不存在情況
         
         # 1.6 設定視窗標題
@@ -370,15 +381,20 @@ class MapWindow(QMainWindow):
             # 3. bash -c 'cd ~/robot_projects/Sr_robot_Base && source install/setup.bash &&
             #    ros2 launch wheeltec_robot_nav2 waypoint_testgui_time.py; exec bash'
 
-            self.terminal_process = subprocess.Popen([
-                "xterm", "-e", "bash -c 'cd ~/robot_projects/Sr_robot_Base && source install/setup.bash && "
-                "ros2 launch wheeltec_robot_nav2 waypoint_testgui_time.py; exec bash'"
-            ])
-            print(f"啟動的終端機進程 PID: {self.terminal_process.pid}")
-        
+            process_name = "waypoint"
+            command = [
+                "xterm", "-T", "waypoint", "-e",
+                "bash", "-c",
+                "source ~/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_robot_nav2 waypoint_testgui_time.py; exec bash"
+            ]
+            self.toggle_process(process_name, command)
+
+            print(f"啟動的終端機進程 PID: {self.processes[process_name].pid}")
+
         # 2.1.5 終端機進程已在運行，顯示提示訊息
         else:
             print("終端機進程已經在運行，無法再次啟動")
+    
     
     # 2.2 停止導航進程
     @pyqtSlot()
@@ -418,6 +434,7 @@ class MapWindow(QMainWindow):
         except Exception as e:
             print(f"停止過程中出現未知錯誤: {e}")
 
+
     # 2.3 回原點
     @pyqtSlot()
     def home_process(self):
@@ -441,6 +458,7 @@ class MapWindow(QMainWindow):
         # 2.3.3 儲存更新後的點位到 saved_points.json
         self.save_points()
         print("已清除所有點位並將原點儲存為新點位")
+
 
     # 2.4 切換設定點位模式
     @pyqtSlot()
@@ -469,6 +487,7 @@ class MapWindow(QMainWindow):
             self.window().value_label.setText(f"世界座標:  (-, -)")
             print("已退出點位記錄模式")
 
+
     # 2.5 清除所有點位
     @pyqtSlot()
     def clear_points(self):
@@ -479,6 +498,7 @@ class MapWindow(QMainWindow):
         self.label.clear()                          # 清空地圖顯示
         self.save_points()                          # 儲存空的點位列表到檔案
         print("所有記錄的點位已清除")
+
 
     # 2.6 地圖放大
     @pyqtSlot()
@@ -495,6 +515,7 @@ class MapWindow(QMainWindow):
         )
         print(f"縮放後的比例 (放大): {self.label.scale_factor}")
     
+    
     # 2.7 地圖縮小
     @pyqtSlot()
     def zoom_out(self):
@@ -509,6 +530,7 @@ class MapWindow(QMainWindow):
             self.label.scale_factor
         )
         print(f"縮放後的比例 (縮小): {self.label.scale_factor}")
+    
     
     # 2.8 儲存檔案事件
     def save_file_with_name(self):
@@ -542,10 +564,11 @@ class MapWindow(QMainWindow):
             elif response == QMessageBox.No:
                 file_name, ok = QInputDialog.getText(self, "另存為", "請輸入新檔案名稱（不含副檔名）:")
                 if ok and file_name:
+                    # 2.8.3.2.1 儲存至新檔案 
                     save_path = os.path.expanduser(f"~/gui_ws/{current_map_name}_{file_name}.json")
                     self.save_points_to_file(save_path)
                     print(f"已儲存至新檔案：{save_path}")
-                    # 關閉點位記錄模式
+                    # 2.8.3.2.2 關閉點位記錄模式
                     self.recording_mode = False
                     self.set_point_button.setStyleSheet("background-color: gray; color: white; font-size: 18px;")
                     print("已自動退出點位記錄模式")
@@ -554,94 +577,113 @@ class MapWindow(QMainWindow):
             else:
                 print("取消儲存操作")
         else:
-            # 未載入檔案，直接要求輸入新檔案名稱
+            # 2.8.4 未載入檔案，直接要求輸入新檔案名稱
             file_name, ok = QInputDialog.getText(self, "儲存檔案", "請輸入檔案名稱（不含副檔名）:")
             if ok and file_name:
+                # 2.8.4.1 儲存至新檔案
                 save_path = os.path.expanduser(f"~/gui_ws/{current_map_name}_{file_name}.json")
                 self.save_points_to_file(save_path)
                 print(f"點位已儲存至: {save_path}")
-                # 關閉點位記錄模式
+                # 2.8.4.2 關閉點位記錄模式
                 self.recording_mode = False
                 self.set_point_button.setStyleSheet("background-color: gray; color: white; font-size: 18px;")
                 print("已自動退出點位記錄模式")
             else:
                 print("取消儲存操作")
 
-    # 2.1 視窗關閉事件
-    def closeEvent(self, event):
-        
-        # 視窗關閉，視同停止所有 ROS2 進程
-        # 需在 terminal 中執行 pkill 指令來確保所有相關進程被終止
-        # 指令如下:
-        # 1. xterm 
-        # 2. -e
-        # 3. bash -c 'pkill -9 -f ros2; exec bash'
 
-        print("視窗關閉事件觸發，執行停止操作")
-        subprocess.Popen([
-           "xterm", "-e", "bash -c 'pkill -9 -f ros2; exec bash'"
-        ])
-        event.accept()  # 接受並繼續關閉視窗
-    
-    
-    
-    
+    # 2.9 刪除檔案事件
+    def delete_file(self):
+        
+        # 2.9.1 開啟檔案選擇對話框，讓使用者選擇要刪除的檔案
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "選擇要刪除的檔案", os.path.expanduser("~/gui_ws"), "JSON Files (*.json)", options=options
+        )
+        if not file_path:  # 如果未選擇檔案
+            print("未選擇檔案")
+            return
+
+        # 2.9.2 顯示確認刪除對話框
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("確認刪除")
+        msg_box.setText(f"是否確定要刪除檔案：{os.path.basename(file_path)}？")
+        msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg_box.setDefaultButton(QMessageBox.No)
+        response = msg_box.exec_()
+
+        # 2.9.3 根據使用者回應執行刪除操作
+        if response == QMessageBox.Yes:
+            try:
+                os.remove(file_path)
+                print(f"成功刪除檔案: {file_path}")
+            except Exception as e:
+                print(f"刪除檔案失敗: {e}")
+        else:
+            print("取消刪除操作")
+
+
+    # 2.10 載入檔案事件
     def load_file(self):
-        """載入特定檔案並根據檔案名稱自動切換地圖"""
+        
+        # 2.10.1 開啟檔案選擇對話框，讓使用者選擇要載入的檔案
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(
             self, "選擇檔案", os.path.expanduser("~/gui_ws"), "JSON Files (*.json)", options=options
         )
-        if not file_path:  # 使用者未選擇檔案
+        if not file_path:
             print("未選擇檔案")
             return
-
+        
+        # 2.10.2 嘗試讀取並載入選擇的檔案
         try:
+
+            # 2.10.2.1 讀取檔案內容
             with open(file_path, 'r') as file:
                 data = json.load(file)
 
-            # 驗證檔案結構
+            # 2.10.2.2 驗證檔案結構
             if 'points' not in data or not isinstance(data['points'], list):
                 raise ValueError("JSON 檔案格式不正確，缺少 'points' 欄位或結構不符")
 
-            # 將目前載入的檔案內容同步到 saved_points.json
-            default_json_path = os.path.expanduser("~/gui_ws/saved_points.json")
-            with open(default_json_path, 'w') as default_file:
-                json.dump(data, default_file, indent=4)
+            # 2.10.2.3 將目前載入的檔案內容同步到 saved_points.json
+            default_json_path = os.path.expanduser("~/gui_ws/saved_points.json")        # 預設點位檔案路徑
+            with open(default_json_path, 'w') as default_file:                          # 開啟預設檔案進行寫入
+                json.dump(data, default_file, indent=4)                                 # 將載入的數據寫入預設檔案
             print(f"已同步檔案內容到: {default_json_path}")
-            self.save_points()
+            self.save_points()                                                          # 呼叫 save_points，確保 GUI 狀態同步
 
-            # 從檔案名稱中提取地圖名稱
-            file_name = os.path.basename(file_path)
-            map_name = file_name.split('_')[0]  # 假設檔案名稱格式為 mapname_xxx.json
+            # 2.10.2.4 從檔案名稱中提取地圖名稱
+            file_name = os.path.basename(file_path)                                     # 取得檔案名稱
+            map_name = file_name.split('_')[0]                                          # 假設檔案名稱格式為 mapname_xxx.json
             print(f"從檔案名稱提取的地圖名稱: {map_name}")
-            # 更新檔案名稱顯示
-            self.label.set_file_name(os.path.basename(file_path))
+            self.label.set_file_name(os.path.basename(file_path))                       # 設定目前檔案名稱以顯示在 GUI 上
 
-            # 在下拉選單中自動選擇對應地圖
+            # 2.10.2.5 在下拉選單中自動選擇對應地圖
             index = self.combo_box.findText(map_name)
             if index == -1:
                 QMessageBox.warning(self, "警告", f"未找到與地圖名稱 '{map_name}' 匹配的地圖")
-                self.label.clear_map()  # 隱藏地圖
-                self.label.clear()  # 確保清空地圖
+                self.label.clear_map()                                                  # 隱藏地圖
+                self.label.clear()                                                      # 確保清空地圖
                 return
             self.combo_box.setCurrentIndex(index)
 
-            # 調用地圖更新邏輯
+            # 2.10.2.6 調用地圖更新邏輯
             self.update_map(index)
 
-            # 清空新增點位，但保留載入的點位
-            self.recorded_points = []
-            self.label.new_points = []  # 新增一個列表來記錄新增點
-            self.label.points = []  # 清空繪製的點（重新繪製載入點）
+            # 2.10.2.7 清空新增點位，但保留載入的點位
+            self.recorded_points = []                       # 清空記錄的點位列表
+            self.label.new_points = []                      # 新增一個列表來記錄新增點
+            self.label.points = []                          # 清空繪製的點（重新繪製載入點）
 
-            # 設定地圖縮放比例為1.0
-            self.label.scale_factor = 1.0
+            # 2.10.2.8 設定地圖縮放比例為1.0
+            self.label.scale_factor = 1.0                   # 重置縮放比例為 1.0
 
-            # 處理載入的點位與方向
-            self.label.loaded_points = []  # 紀錄載入的點位
-            self.label.directions.clear()  # 清空方向箭頭後重繪
+            # 2.10.2.9 處理載入的點位與方向
+            self.label.loaded_points = []                   # 紀錄載入的點位
+            self.label.directions.clear()                   # 清空方向箭頭後重繪
 
+            # 2.10.2.10 處理載入的點位與方向
             for point in data['points']:
                 # 驗證點位是否完整
                 if not all(key in point for key in ['x', 'y', 'z', 'qx', 'qy', 'qz', 'qw']):
@@ -665,7 +707,7 @@ class MapWindow(QMainWindow):
                     print(f"計算方向時出錯: {e}, 點位: {point}")
                     continue
 
-            # 將載入的點保存到 `recorded_points`（作為基礎點位）
+            # 2.10.2.11 將載入的點保存到 `recorded_points`（作為基礎點位）
             self.recorded_points = data['points']
             self.file_loaded = True
 
@@ -674,86 +716,225 @@ class MapWindow(QMainWindow):
             self.label.update()  # 觸發重新繪製
         except Exception as e:
             print(f"載入檔案失敗: {e}")
-    
-    
-    
+ 
+ 
+    # 2.11 取消載入檔案事件
+    def cancel_file(self):
+        
+        # 2.11.1 檢查是否有檔案已載入
+        if not self.file_loaded:
+            print("尚未載入任何檔案，無需取消")
+            self.label.clear_map()                      # 隱藏地圖
+            self.combo_box.setCurrentIndex(0)           # 重置地圖選單
+            self.label.current_map_file = None          # 清除當前地圖檔案
+            return
 
-    def save_points_to_file(self, file_path):
-        """儲存記錄的點位到指定檔案路徑"""
-        rounded_points = [
-            {
-                "x": round(point["x"], 15),
-                "y": round(point["y"], 15),
-                "z": round(point["z"], 15),
-                "qx": round(point["qx"], 15),
-                "qy": round(point["qy"], 15),
-                "qz": round(point["qz"], 15),
-                "qw": round(point["qw"], 15),
-                "stay_duration": int(point["stay_duration"])
-            }
-            for point in self.recorded_points
-        ]
-        with open(file_path, 'w') as file:
-            json.dump({'points': rounded_points}, file, indent=4)
-
-    
-
-
-    def start_ros2_process(self):
-        """啟動 ROS2 指令"""
-        print("啟動 ROS2 進程")
-
-        try:
-            # 組合要執行的指令
-            command = "cd ~/wheeltec_ros2 && source install/setup.bash && ros2 launch wheeltec_nav2 wheeltec_nav2.launch.py"
-            
-            # 使用 subprocess.Popen 來啟動 ROS2 進程，這樣不會阻塞主程式
-            subprocess.Popen(f"bash -c '{command}'", shell=True, executable='/bin/bash')
-
-            print("ROS2 進程已成功啟動")
-        except subprocess.CalledProcessError as e:
-            print(f"啟動過程失敗: {e}")
-
-    def load_map_metadata(self, index):
-        """根據選取的地圖讀取 YAML 檔案中的元資料"""
-        try:
-            with open(self.yaml_files[index], 'r') as file:
-                map_info = yaml.safe_load(file)
-            
-            # 獲取解析度和原點座標
-            self.resolution = map_info.get('resolution', 0.05)  # 如果缺少，設為默認值
-            self.origin = map_info.get('origin', [0, 0, 0])  # 如果缺少，設為默認值
-            print(f"地圖元資料加載成功: resolution={self.resolution}, origin={self.origin}")
-        except Exception as e:
-            print(f"加載地圖元資料失敗: {e}")
+        # 2.11.2 重置檔案載入狀態
+        self.file_loaded = False                        # 重置檔案載入狀態
+        self.recorded_points = []                       # 清空點位
+        self.label.points.clear()                       # 清空地圖上的點位
+        self.label.directions.clear()                   # 清空地圖上的方向箭頭
+        self.label.set_file_name(None)                  # 清除檔案名稱
+        self.combo_box.setCurrentIndex(0)               # 重置地圖選單
+        self.label.clear_map()                          # 隱藏地圖
+        print(f"已取消載入的檔案：{self.label.current_file_name}，所有點位及檔案名稱已清空")
 
 
-
-
-
-
-
+    # 2.12 切換鍵盤控制模式
     @pyqtSlot()
     def toggle_keyboard_mode(self):
-        """按下鍵盤模式按鈕時，啟動/關閉 ROS2 鍵盤控制"""
-        if self.terminal_process is None or self.terminal_process.poll() is not None:
-            # 終端機未啟動或已結束，啟動 ROS2 鍵盤控制
+        try:
+            print("啟動 ROS2 鍵盤控制進程...")
+            
+            # 2.12.1.1 啟動鍵盤進程
+            # 指令如下:
+            # 1. xterm
+            # 2. -e
+            # 3. bash -c 'cd ~/robot_projects/Sr_robot_Base && source install/setup.bash &&
+            #    ros2 run wheeltec_robot_keyboard wheeltec_keyboard.py; exec bash'
+
+            process_name = "ros2_keyboard_teleop"
+            command = [
+                "xterm", "-T", "Keyboard Teleop", "-e",  # -T 設置視窗標題
+                "bash", "-c", 
+                "source ~/robot_projects/Sr_robot_Base/install/setup.bash && ros2 run wheeltec_robot_keyboard wheeltec_keyboard.py; exec bash"
+            ]
+            self.toggle_process(process_name, command)
+
+            print(f"啟動的終端機進程 PID: {self.processes[process_name].pid}")
+
+            self.keyboard_mode_button.setText("KEYBOARD MODE\n關閉")
+            self.keyboard_mode_button.setStyleSheet("background-color: green; color: white; font-size: 16px;")
+            print(f"鍵盤控制已啟動 (PID: {self.processes[process_name].pid})")
+        except Exception as e:
+            print(f"啟動鍵盤控制失敗: {e}")
+
+
+    # 2.13 切換 INSTA 全景相機控制模式
+    @pyqtSlot()
+    def toggle_insta_mode(self):
+        
+        try:
+            print("啟動 ROS2 INSTA 全景相機控制進程...")
+
+            # 2.13.1.1 啟動全景相機進程
+            # 指令如下:
+            # 1. xterm
+            # 2. -e
+            # 3. bash -c 'python  Insta_OpenCV/trun_on_insta_OCR.py; exec bash'
+
+            process_name = "insta_control"
+            command = [
+                "xterm", "-T", "INSTA Control", "-e",  # -T 設置視窗標題
+                "bash", "-c", 
+                "python3 ~/Insta_OpenCV/trun_on_insta_OCR.py; exec bash"
+            ]
+            self.toggle_process(process_name, command)
+
+            print(f"啟動的終端機進程 PID: {self.processes[process_name].pid}")
+
+            self.insta_mode_button.setText("INSTA MODE\n關閉")
+            self.insta_mode_button.setStyleSheet("background-color: green; color: white; font-size: 16px;")
+            print(f"INSTA 控制已啟動 (PID: {self.processes[process_name].pid})")
+        except Exception as e:
+            print(f"啟動 INSTA 控制失敗: {e}")
+
+
+    # 2.14 切換 AX8 熱顯像儀控制模式
+    @pyqtSlot()
+    def toggle_ax8_mode(self):
+        try:
+            print("啟動 ROS2 AX8 熱顯像儀控制進程...")
+
+            # 2.14.1.1 啟動 AX8 熱顯像儀進程
+            # 指令如下:
+            # 1. xterm
+            # 2. -e
+            # 3. bash -c 'python  ax8/ax8_worker.py; exec bash'
+
+            process_name = "ax8_control"
+            command = [
+                "xterm", "-T", "AX8 Control", "-e",  # -T 設置視窗標題
+                "bash", "-c", 
+                "python3 ~/ax8/ax8_worker.py; exec bash"
+            ]
+            self.toggle_process(process_name, command)
+
+            print(f"啟動的終端機進程 PID: {self.processes[process_name].pid}")
+
+            self.ax8_mode_button.setText("AX8 MODE\n關閉")
+            self.ax8_mode_button.setStyleSheet("background-color: green; color: white; font-size: 16px;")
+            print(f"AX8 控制已啟動 (PID: {self.processes[process_name].pid})")
+        except Exception as e:
+            print(f"啟動 AX8 控制失敗: {e}")
+
+
+    # 2.15 初始化並啟動 Wheeltec ROS2 進程
+    @pyqtSlot()
+    def start_wheeltec_nav2_process(self):
+
+        print("啟動 wheeltec_nav2 進程")
+
+        try:
+
+            # 2.15.1.1 啟動 wheeltec_nav2 進程
+            # 指令如下:
+            # 1. xterm
+            # 2. -e
+            # 3. bash -c ''
+
+            process_name = "wheeltec_nav2"
+            command = [
+                "xterm", "-T", "wheeltec_nav2", "-e",  # -T 設置視窗標題
+                "bash", "-c", 
+                "source ~/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_nav2 wheeltec_nav2.py; exec bash"
+            ]
+            
+            self.toggle_process(process_name, command)
+            print(f"wheeltec_nav2 控制已啟動 (PID: {self.processes[process_name].pid})")
+        except Exception as e:
+            print(f"啟動 wheeltec_nav2 控制失敗: {e}")
+
+
+    # 通用函式: 啟動或停止子進程
+    def toggle_process(self, process_name, command):        
+        
+        # 通用函式，用於啟動或停止一個子進程。
+
+        # process_name: 為這個進程指定的唯一名稱 (e.g., 'ros2_navigation')
+        # command: 一個包含命令和參數的列表 (list for subprocess.Popen)
+
+        process = self.processes.get(process_name)  # 如果鍵不存在會返回 None
+
+        # 檢查進程是否已在執行
+        
+        # 如果 process_name 在字典中，且對應的進程仍在運行
+        # .poll() 用於檢查進程是否結束，返回 None 表示進程仍在運行
+        if process is not None and process.poll() is None: 
+
+            print(f"正在停止進程 '{process_name}'...")
+            
             try:
-                print("啟動 ROS2 鍵盤控制進程...")
-                self.terminal_process = subprocess.Popen([
-                    "xterm", "-e", "bash -c 'source ~/wheeltec_ros2/install/setup.bash && ros2 run wheeltec_robot_keyboard wheeltec_keyboard; exec bash'"
-                ])
-                self.keyboard_mode_button.setText("KEYBOARD MODE\n關閉")
-                self.keyboard_mode_button.setStyleSheet("background-color: green; color: white; font-size: 16px;")
-                print(f"鍵盤控制已啟動 (PID: {self.terminal_process.pid})")
+                os.killpg(os.getpgid(process.pid), signal.SIGTERM)              # 終止進程組
+                process.wait(timeout=3)                                         # 等待終止
+            except ProcessLookupError:
+                print(f"進程 '{process_name}' 已經不存在。")
+            except subprocess.TimeoutExpired:
+                print(f"終止超時，強制終止進程組 '{process_name}'...")
+                os.killpg(os.getpgid(process.pid), signal.SIGKILL)              # 強制殺掉進程組
             except Exception as e:
-                print(f"啟動鍵盤控制失敗: {e}")
+                print(f"關閉進程時發生錯誤: {e}")
+                process.kill()
+
+            print(f"進程 '{process_name}' 已停止。")
+            self.processes[process_name] = None                                 # 停止後，把它重置回「佔位符 None」
+        
+        # 如果進程未在執行，則啟動它    
         else:
-            print("終端機已在運行，請先關閉終端機再重新啟動。")
+            print(f"正在啟動進程 '{process_name}'...")
+            try:
+                process = subprocess.Popen(command, preexec_fn=os.setsid)       # 啟動新進程並創建新的進程組
+                self.processes[process_name] = process                          # 將進程物件存入字典
+                print(f"進程 '{process_name}' 已啟動 (PID: {process.pid})。")
+            except FileNotFoundError:
+                print(f"錯誤: 命令 '{command[0]}' 找不到。請確認已安裝並在 PATH 中。")
+            except Exception as e:
+                print(f"啟動進程 '{process_name}' 時發生錯誤: {e}")
 
+    # 關閉視窗事件
+    def closeEvent(self, event):
 
+        print("視窗關閉事件觸發，正在清理所有背景進程...")
+        
+        # 取得所有正在運行的進程名稱
+        # 使用 list() 是為了避免在迭代過程中修改字典
+        running_process_names = list(self.processes.keys())
+        
+        for name in running_process_names:
+            # 從字典中取得進程物件
+            process = self.processes.get(name)
+            
+            # 檢查進程物件是否存在，且仍在運行
+            if process and process.poll() is None:
+                print(f"正在停止進程 '{name}' (PID: {process.pid})...")
+                try:
+                    os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                    process.wait(timeout=2)
+                    print(f"進程 '{name}' 已成功終止。")
+                except AttributeError:
+                    print(f"警告: 系統不支援 killpg，使用 process.kill() 強制終止 '{name}'。")
+                    process.kill()
+                except subprocess.TimeoutExpired:
+                    print(f"終止 '{name}' 超時，強制終止...")
+                    os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                except Exception as e:
+                    print(f"關閉進程 '{name}' 時發生錯誤: {e}，嘗試強制終止...")
+                    process.kill()
 
-
+        print("所有進程已清理完畢。")
+        event.accept()
+    
+    # 儲存點位到 saved_points.json
     def save_points(self):
         """儲存記錄的點位到檔案，並限制數值小數點後 15 位，包含停留時間"""
         print('儲存的點位為:', self.recorded_points)
@@ -774,12 +955,13 @@ class MapWindow(QMainWindow):
             rounded_points.append(rounded_point)
 
         # 將格式化後的點位資料存入 saved_points.json
-        # with open('C:/Users/ADMIN/OneDrive/gui_python/saved_points.json', 'w') as file:
-        with open('/home/sr/gui_ws/saved_points.json', 'w') as file:
+        with open(os.path.expanduser('~/gui_ws/saved_points.json'), 'w') as file:
             json.dump({'points': rounded_points}, file, indent=4)
 
         print("已將點位儲存到 saved_points.json")
     
+    
+    # 儲存點位到指定檔案路徑
     def save_points_to_file(self, file_path):
         """儲存記錄的點位到指定檔案路徑"""
         rounded_points = [
@@ -795,42 +977,24 @@ class MapWindow(QMainWindow):
             }
             for point in self.recorded_points
         ]
+        with open(file_path, 'w') as file:
+            json.dump({'points': rounded_points}, file, indent=4)
 
+    # 讀取地圖元資料
+    def load_map_metadata(self, index):
+        """根據選取的地圖讀取 YAML 檔案中的元資料"""
         try:
-            with open(file_path, 'w') as file:
-                json.dump({'points': rounded_points}, file, indent=4)
-            print(f"成功儲存點位至: {file_path}")
+            with open(self.yaml_files[index], 'r') as file:
+                map_info = yaml.safe_load(file)
+            
+            # 獲取解析度和原點座標
+            self.resolution = map_info.get('resolution', 0.05)  # 如果缺少，設為默認值
+            self.origin = map_info.get('origin', [0, 0, 0])  # 如果缺少，設為默認值
+            print(f"地圖元資料加載成功: resolution={self.resolution}, origin={self.origin}")
         except Exception as e:
-            print(f"儲存失敗: {e}")
+            print(f"加載地圖元資料失敗: {e}")
 
-    def delete_file(self):
-        """刪除選擇的 JSON 檔案"""
-        options = QFileDialog.Options()
-        file_path, _ = QFileDialog.getOpenFileName(
-            # self, "選擇要刪除的檔案", os.path.expanduser("C:/Users/ADMIN/OneDrive/gui_python"), "JSON Files (*.json)", options=options
-            self, "選擇要刪除的檔案", os.path.expanduser("~/gui_ws"), "JSON Files (*.json)", options=options
-        )
-        if not file_path:  # 如果未選擇檔案
-            print("未選擇檔案")
-            return
-
-        # 使用 QMessageBox 確認刪除
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("確認刪除")
-        msg_box.setText(f"是否確定要刪除檔案：{os.path.basename(file_path)}？")
-        msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        msg_box.setDefaultButton(QMessageBox.No)
-        response = msg_box.exec_()
-
-        if response == QMessageBox.Yes:
-            try:
-                os.remove(file_path)
-                print(f"成功刪除檔案: {file_path}")
-            except Exception as e:
-                print(f"刪除檔案失敗: {e}")
-        else:
-            print("取消刪除操作")
-
+    
     def load_saved_points(self):
         """載入預設點位檔案"""
         # default_file_path = os.path.expanduser("C:/Users/ADMIN/OneDrive/gui_python/saved_points.json")
@@ -843,29 +1007,6 @@ class MapWindow(QMainWindow):
         except FileNotFoundError:
             self.recorded_points = []
             print("未找到預設點位檔案")
-
-    def cancel_file(self):
-        """取消已載入的檔案並清空點位，同時重置地圖顯示"""
-        if not self.file_loaded:
-            print("尚未載入任何檔案，無需取消")
-            self.label.clear_map()  # 隱藏地圖
-            self.combo_box.setCurrentIndex(0)
-            self.label.current_map_file = None  # 清除當前地圖檔案
-            return
-
-        # 重置檔案載入狀態
-        self.file_loaded = False
-        self.recorded_points = []  # 清空點位
-        self.label.points.clear()
-        self.label.directions.clear()
-
-        # 清空檔案名稱
-        self.label.set_file_name(None)  # 清除檔案名稱
-
-        # 重置地圖顯示
-        self.combo_box.setCurrentIndex(0)
-        self.label.clear_map()  # 隱藏地圖
-        print(f"已取消載入的檔案：{self.label.current_file_name}，所有點位及檔案名稱已清空")
 
     def load_image_height(self, pgm_file):
         """取得圖片的實際高度（以像素為單位）"""

@@ -14,7 +14,7 @@ def generate_launch_description():
 
      # 定義 sllidar_s2_launch.py 的啟動檔描述
      sllidar_a2m12 = IncludeLaunchDescription(
-         PythonLaunchDescriptionSource(os.path.join(sllidar_launch_dir, 'rplidar_a2m12_launch.py')),
+         PythonLaunchDescriptionSource(os.path.join(sllidar_launch_dir, 'rplidar_a3_launch.py')),
      )
                   
      # 建立啟動描述對象
