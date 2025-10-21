@@ -42,8 +42,6 @@ class MapWindow(QMainWindow):
         self.timer.start(1000)                                      # 每 1 秒檢查一次終端機狀態
         
         self.processes = {
-            "turn_on_wheeltec": None,
-            "wheeltec_nav2": None,
             "waypoint": None,
             "ros2_keyboard_teleop": None,
             "insta_control": None,
@@ -853,7 +851,7 @@ class MapWindow(QMainWindow):
     @pyqtSlot()
     def start_wheeltec_nav2_process(self):
 
-        print("啟動 wheeltec_nav2 進程")
+        print("啟動 nav2 進程")
 
         try:
 
@@ -863,9 +861,9 @@ class MapWindow(QMainWindow):
             # 2. -e
             # 3. bash -c ''
 
-            process_name = "wheeltec_nav2"
+            process_name = "nav2"
             command = [
-                "xterm", "-T", "wheeltec_nav2", "-e",  # -T 設置視窗標題
+                "xterm", "-T", "nav2", "-e",  # -T 設置視窗標題
                 "bash", "-c", 
                 "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_nav2 wheeltec_nav2.launch.py; exec bash"
             ]
