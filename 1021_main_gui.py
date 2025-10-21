@@ -928,11 +928,14 @@ class MapWindow(QMainWindow):
                 finally:
                     self.processes["nav2"] = None
             
+            # 等待進程完全終止
+            time.sleep(7)
+            print("導航系統已停止，準備進入建圖模式")
             
             # 3. 開始建圖
             print("正在啟動建圖程序...")
             slam_command = [
-                "xterm", "-e",
+                "xterm", "-T", "slam", "-e",  # -T 設置視窗標題
                 "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch slam_toolbox online_sync_launch.py; exec bash'"
             ]
             self.toggle_process("slam", slam_command)
@@ -940,7 +943,7 @@ class MapWindow(QMainWindow):
             # 4. 打開鍵盤控制，方便使用者操作機器人進行建圖
             print("啟動鍵盤控制...")
             keyboard_command = [
-                "xterm", "-e",
+                "xterm", "-T", "keyboard", "-e",
                 "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 run wheeltec_robot_keyboard wheeltec_keyboard; exec bash'"
             ]
             self.toggle_process("keyboard", keyboard_command)
@@ -949,11 +952,11 @@ class MapWindow(QMainWindow):
             # 啟用設定檔案 /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/rviz/wheeltec.rviz
             print("啟動 rviz2 以觀察建圖過程...")            
             rviz_command_with_file = [
-                "xterm", "-e",
+                "xterm", "-T", "rviz2", "-e",
                 "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && rviz2 -d /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/rviz/wheeltec.rviz; exec bash'"
             ]
             rviz_command = [
-                "xterm", "-e",
+                "xterm", "-T", "rviz2", "-e",
                 "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && rviz2; exec bash'"
             ]
             self.toggle_process("rviz2", rviz_command)
@@ -974,11 +977,7 @@ class MapWindow(QMainWindow):
             
             # 恢復導航系統狀態
             print("恢復導航系統狀態...")
-            nav_command = [
-                "xterm", "-e",
-                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_nav2 wheeltec_nav2.launch.py; exec bash'"
-            ]
-            self.toggle_process("nav2", nav_command)
+            self.start_wheeltec_nav2_process()
 
         except Exception as e:
             print(f"初始化過程出錯: {e}")
