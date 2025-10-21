@@ -402,7 +402,7 @@ class MapWindow(QMainWindow):
             command = [
                 "xterm", "-T", "waypoint", "-e",
                 "bash", "-c",
-                "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_robot_nav2 waypoint_testgui_time.py; exec bash"
+                "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_nav2 waypoint_testgui_time.py; exec bash"
             ]
             self.toggle_process(process_name, command)
 
@@ -867,7 +867,7 @@ class MapWindow(QMainWindow):
             command = [
                 "xterm", "-T", "wheeltec_nav2", "-e",  # -T 設置視窗標題
                 "bash", "-c", 
-                "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_robot_nav2 wheeltec_nav2.launch.py; exec bash"
+                "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_nav2 wheeltec_nav2.launch.py; exec bash"
             ]
             
             self.toggle_process(process_name, command)
