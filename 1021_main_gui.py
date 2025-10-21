@@ -40,15 +40,19 @@ class MapWindow(QMainWindow):
         self.timer = QTimer(self)                                   # 初始化定時器
         self.timer.timeout.connect(self.check_terminal_status)      # 連接定時器超時信號到檢查函式
         self.timer.start(1000)                                      # 每 1 秒檢查一次終端機狀態
-
-        # 嘗試使用字典來保存多個子進程
+        
         self.processes = {
             "turn_on_wheeltec": None,
             "wheeltec_nav2": None,
             "waypoint": None,
             "ros2_keyboard_teleop": None,
             "insta_control": None,
-            "ax8_control": None
+            "ax8_control": None,
+            "lidar": None,
+            "nav2": None,
+            "slam": None,
+            "keyboard": None,
+            "rviz2": None
         }
 
         # 1.3 鍵盤控制設定
@@ -71,8 +75,8 @@ class MapWindow(QMainWindow):
         self.setWindowTitle('Sr Robot GUI 控制介面 V2.10.21')
         # self.setFixedSize(1200, 700)          # 設定固定視窗大小,避免使用者調整大小導致佈局錯亂
         # 嘗試自由大小調整
-        self.setMinimumSize(1000, 600)          # 設定最小視窗大小
-        self.setMaximumSize(1600, 900)          # 設定最大視窗大小
+        self.setMinimumSize(1000, 900)          # 設定最小視窗大小
+        self.setMaximumSize(1600, 1200)          # 設定最大視窗大小
         
         
         # ---------------------------------------------------------------------------------------------
@@ -112,7 +116,7 @@ class MapWindow(QMainWindow):
         # -  SAVEFILE  -  DELETEFILE  -            -
         # -  LOADFILE  -  CANCELFILE  -            -
         # -   INSTA    -     AX8      -            -
-        # -                                        -
+        # -   INIT     -              -            -
         # -     [ 停留時間資訊欄 ]     -            -
         # ------------------------------------------
 
@@ -131,6 +135,7 @@ class MapWindow(QMainWindow):
         self.keyboard_mode_button   = QPushButton("KEYBOARD\n鍵盤控制")
         self.insta_mode_button      = QPushButton("INSTA\n全景相機控制")
         self.ax8_mode_button        = QPushButton("AX8\n熱顯像儀控制")
+        self.init_system_button     = QPushButton("INIT\n系統初始化")
 
         # 1.7.2.1 綁定按鈕事件
         self.start_button.clicked.connect(self.start_process)
@@ -147,6 +152,7 @@ class MapWindow(QMainWindow):
         self.keyboard_mode_button.clicked.connect(self.toggle_keyboard_mode)
         self.insta_mode_button.clicked.connect(self.toggle_insta_mode)
         self.ax8_mode_button.clicked.connect(self.toggle_ax8_mode)
+        self.init_system_button.clicked.connect(self.initialize_system)
 
         # 1.7.2.2 設定按鈕大小和顏色
         self.start_button.setFixedSize(110, 60)
@@ -177,6 +183,8 @@ class MapWindow(QMainWindow):
         self.insta_mode_button.setStyleSheet("background-color: yellow; color: white; font-size: 16px;")
         self.ax8_mode_button.setFixedSize(110, 60)
         self.ax8_mode_button.setStyleSheet("background-color: red; color: white; font-size: 16px;")
+        self.init_system_button.setFixedSize(110, 60)
+        self.init_system_button.setStyleSheet("background-color: purple; color: white; font-size: 16px;")
         
         # 1.7.2.3 新增水平佈局，用於放置啟動和鍵盤控制按鈕，放置先後順序為 start_button 在前
         file_buttons_layout0 = QHBoxLayout()
@@ -212,6 +220,9 @@ class MapWindow(QMainWindow):
         file_buttons_layout6 = QHBoxLayout()
         file_buttons_layout6.addWidget(self.insta_mode_button)
         file_buttons_layout6.addWidget(self.ax8_mode_button)
+        
+        file_buttons_layout7 = QHBoxLayout()
+        file_buttons_layout7.addWidget(self.init_system_button)
 
         # 1.7.2.10 建立按鈕佈局
         button_layout = QVBoxLayout()                   # 垂直佈局，用於放置所有按鈕
@@ -759,18 +770,21 @@ class MapWindow(QMainWindow):
             # 3. bash -c 'cd /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base && source install/setup.bash &&
             #    ros2 run wheeltec_robot_keyboard wheeltec_keyboard.py; exec bash'
 
+            self.keyboard_mode_button.setText("KEYBOARD MODE\n啟動中...")
+            self.keyboard_mode_button.setStyleSheet("background-color: green; color: white; font-size: 16px;")
+            
             process_name = "ros2_keyboard_teleop"
             command = [
                 "xterm", "-T", "Keyboard Teleop", "-e",  # -T 設置視窗標題
                 "bash", "-c", 
-                "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 run wheeltec_robot_keyboard wheeltec_keyboard.py; exec bash"
+                "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 run wheeltec_robot_keyboard wheeltec_keyboard; exec bash"
             ]
             self.toggle_process(process_name, command)
 
             print(f"啟動的終端機進程 PID: {self.processes[process_name].pid}")
 
             self.keyboard_mode_button.setText("KEYBOARD MODE\n關閉")
-            self.keyboard_mode_button.setStyleSheet("background-color: green; color: white; font-size: 16px;")
+            self.keyboard_mode_button.setStyleSheet("background-color: gray; color: white; font-size: 16px;")
             print(f"鍵盤控制已啟動 (PID: {self.processes[process_name].pid})")
         except Exception as e:
             print(f"啟動鍵盤控制失敗: {e}")
@@ -860,6 +874,87 @@ class MapWindow(QMainWindow):
             print(f"wheeltec_nav2 控制已啟動 (PID: {self.processes[process_name].pid})")
         except Exception as e:
             print(f"啟動 wheeltec_nav2 控制失敗: {e}")
+
+    # 2.16 系統初始化流程
+    @pyqtSlot()
+    def initialize_system(self):
+        """
+        系統初始化流程:
+        1. 啟動雷達
+        2. 啟動導航系統
+        3. 開始建圖
+        4. 儲存地圖
+        """
+        try:
+            # 按鈕變色提示正在執行
+            self.init_system_button.setStyleSheet("background-color: green; color: white; font-size: 16px;")
+            self.init_system_button.setText("INIT\n初始化中...")
+
+            # 1. 啟動雷達
+            print("正在啟動雷達...")
+            lidar_command = [
+                "xterm", "-e",
+                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch turn_on_wheeltec_robot robotandlidar.launch.py; exec bash'"
+            ]
+            self.toggle_process("lidar", lidar_command)
+
+            # 等待雷達啟動
+            time.sleep(3)
+
+            # 2. 啟動導航系統
+            print("正在啟動導航系統...")
+            nav_command = [
+                "xterm", "-e",
+                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_nav2 wheeltec_nav2.py; exec bash'"
+            ]
+            self.toggle_process("nav2", nav_command)
+
+            # 等待導航系統啟動
+            time.sleep(3)
+
+            # 3. 開始建圖
+            print("正在啟動建圖程序...")
+            slam_command = [
+                "xterm", "-e",
+                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch slam_toolbox online_sync_launch.py; exec bash'"
+            ]
+            self.toggle_process("slam", slam_command)
+
+            # 4. 打開鍵盤控制，方便使用者操作機器人進行建圖
+            print("啟動鍵盤控制...")
+            keyboard_command = [
+                "xterm", "-e",
+                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 run wheeltec_robot_keyboard wheeltec_keyboard; exec bash'"
+            ]
+            self.toggle_process("keyboard", keyboard_command)
+            
+            # 5. 打開 rviz2 以便觀察建圖過程
+            print("啟動 rviz2 以觀察建圖過程...")
+            rviz_command = [
+                "xterm", "-e",
+                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 run rviz2 rviz2; exec bash'"
+            ]
+            self.toggle_process("rviz2", rviz_command)
+            
+
+            # 提示使用者
+            QMessageBox.information(self, "系統初始化", 
+                "系統已完成初始化！\n\n" +
+                "1. 請使用鍵盤控制機器人繞行環境以完成建圖\n" +
+                "2. 建圖完成後，請在終端中執行以下命令儲存地圖：\n" +
+                "   ros2 run nav2_map_server map_saver_cli -f <地圖名稱>\n" +
+                "3. 儲存完成後，請重啟程式以載入新地圖"
+            )
+
+            # 恢復按鈕狀態
+            self.init_system_button.setStyleSheet("background-color: purple; color: white; font-size: 16px;")
+            self.init_system_button.setText("INIT\n系統初始化")
+
+        except Exception as e:
+            print(f"初始化過程出錯: {e}")
+            QMessageBox.critical(self, "錯誤", f"初始化過程發生錯誤：\n{str(e)}")
+            self.init_system_button.setStyleSheet("background-color: purple; color: white; font-size: 16px;")
+            self.init_system_button.setText("INIT\n系統初始化")
 
 
     # 通用函式: 啟動或停止子進程
