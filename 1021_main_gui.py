@@ -22,6 +22,11 @@ class MapWindow(QMainWindow):
         
         super().__init__()                      # 初始化父類別 QMainWindow，這是 QT 視窗的基礎類別
         
+        # 1.0 路徑初始化
+        self.gui_ws_path = os.path.expanduser("~/gui_ws")
+        os.makedirs(self.gui_ws_path, exist_ok=True)
+
+        
         # 1.1 地圖視窗初始化
         self.file_loaded = False                # 紀錄是否載入過地圖檔案，初始為 False
         self.origin = [0, 0]                    # 初始化原點座標，預定為 (0,0)，可根據 YAML 檔案更新
@@ -1105,6 +1110,8 @@ class MapLabel(QLabel):
         self.directions = [] # 儲存所有的方向箭頭
         self.current_file_name = None  # 紀錄當前檔案名稱
         self.current_map_file = None  # 儲存當前選擇的地圖檔案
+        self.gui_ws_path = os.path.expanduser("~/gui_ws")
+        os.makedirs(self.gui_ws_path, exist_ok=True)
 
     def update_image(self, pgm_file, image_height, origin, resolution, scale_factor=None):
         """更新顯示的地圖影像"""
@@ -1278,7 +1285,7 @@ class MapLabel(QLabel):
     def sync_points_to_files(self):
         """同步點位到 saved_points.json"""
         # saved_points_path = os.path.expanduser("C:/Users/ADMIN/OneDrive/gui_python/saved_points.json")
-        saved_points_path = os.path.join(self.gui_ws_path, "saved_points.json")
+        saved_points_path = os.path.join(self.window().gui_ws_path, "saved_points.json")
         self.window().save_points_to_file(saved_points_path)
         print("已同步更新至 saved_points.json")
 
