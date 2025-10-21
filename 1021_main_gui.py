@@ -75,8 +75,8 @@ class MapWindow(QMainWindow):
         self.setWindowTitle('Sr Robot GUI 控制介面 V2.10.21')
         # self.setFixedSize(1200, 700)          # 設定固定視窗大小,避免使用者調整大小導致佈局錯亂
         # 嘗試自由大小調整
-        self.setMinimumSize(1000, 900)          # 設定最小視窗大小
-        self.setMaximumSize(1600, 1200)          # 設定最大視窗大小
+        self.setMinimumSize(1000, 700)          # 設定最小視窗大小
+        self.setMaximumSize(1600, 1000)          # 設定最大視窗大小
         
         
         # ---------------------------------------------------------------------------------------------
