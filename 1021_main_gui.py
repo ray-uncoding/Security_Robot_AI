@@ -30,6 +30,9 @@ class MapWindow(QMainWindow):
         self.directions = []                    # 用於保存點位方向
         self.save_points()                      # 嘗試保存初始空點位，save_points 方法內會處理空點位情況
         
+        self.gui_ws_path = os.path.expanduser("~/gui_ws")  # 儲存 gui_ws 的絕對路徑
+        os.makedirs(self.gui_ws_path, exist_ok=True)  # 確保目錄存在
+
         # 1.2 終端機狀態設定
         self.terminal_process = None                                # 用於保存終端機進程
         self.timer = QTimer(self)                                   # 初始化定時器
@@ -352,7 +355,7 @@ class MapWindow(QMainWindow):
             return
 
         # 2.1.3 檢查 save_points.json 是否有數據
-        save_points_path = os.path.expanduser("~/gui_ws/saved_points.json")
+        save_points_path = os.path.join(self.gui_ws_path, "saved_points.json")
 
         # 2.1.3.1 檢查檔案是否存在
         if not os.path.exists(save_points_path):
@@ -370,7 +373,7 @@ class MapWindow(QMainWindow):
         if self.terminal_process is None or self.terminal_process.poll() is not None:
             
             # 2.1.4.1 啟動前更新 JSON 檔案
-            default_json_path = os.path.expanduser("~/gui_ws/saved_points.json")    # 預設點位檔案路徑
+            default_json_path = os.path.join(self.gui_ws_path, "saved_points.json")    # 預設點位檔案路徑
             self.save_points_to_file(default_json_path)                             # 呼叫 save_points_to_file，保存當前點位到預設檔案
             print(f"已更新導航點位檔案至: {default_json_path}")
             
@@ -556,7 +559,7 @@ class MapWindow(QMainWindow):
 
             # 2.8.3.1 YES，覆蓋原檔案
             if response == QMessageBox.Yes:
-                save_path = f"~/gui_ws/{self.label.current_file_name}"                
+                save_path = os.path.join(self.gui_ws_path, self.label.current_file_name)                
                 self.save_points_to_file(save_path)
                 print(f"已覆蓋原檔案：{save_path}")
 
@@ -565,7 +568,7 @@ class MapWindow(QMainWindow):
                 file_name, ok = QInputDialog.getText(self, "另存為", "請輸入新檔案名稱（不含副檔名）:")
                 if ok and file_name:
                     # 2.8.3.2.1 儲存至新檔案 
-                    save_path = os.path.expanduser(f"~/gui_ws/{current_map_name}_{file_name}.json")
+                    save_path = os.path.join(self.gui_ws_path, f"{current_map_name}_{file_name}.json")
                     self.save_points_to_file(save_path)
                     print(f"已儲存至新檔案：{save_path}")
                     # 2.8.3.2.2 關閉點位記錄模式
@@ -581,7 +584,7 @@ class MapWindow(QMainWindow):
             file_name, ok = QInputDialog.getText(self, "儲存檔案", "請輸入檔案名稱（不含副檔名）:")
             if ok and file_name:
                 # 2.8.4.1 儲存至新檔案
-                save_path = os.path.expanduser(f"~/gui_ws/{current_map_name}_{file_name}.json")
+                save_path = os.path.join(self.gui_ws_path, f"{current_map_name}_{file_name}.json")
                 self.save_points_to_file(save_path)
                 print(f"點位已儲存至: {save_path}")
                 # 2.8.4.2 關閉點位記錄模式
@@ -598,7 +601,7 @@ class MapWindow(QMainWindow):
         # 2.9.1 開啟檔案選擇對話框，讓使用者選擇要刪除的檔案
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "選擇要刪除的檔案", os.path.expanduser("~/gui_ws"), "JSON Files (*.json)", options=options
+            self, "選擇要刪除的檔案", self.gui_ws_path, "JSON Files (*.json)", options=options
         )
         if not file_path:  # 如果未選擇檔案
             print("未選擇檔案")
@@ -629,7 +632,7 @@ class MapWindow(QMainWindow):
         # 2.10.1 開啟檔案選擇對話框，讓使用者選擇要載入的檔案
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "選擇檔案", os.path.expanduser("~/gui_ws"), "JSON Files (*.json)", options=options
+            self, "選擇檔案", self.gui_ws_path, "JSON Files (*.json)", options=options
         )
         if not file_path:
             print("未選擇檔案")
@@ -647,7 +650,7 @@ class MapWindow(QMainWindow):
                 raise ValueError("JSON 檔案格式不正確，缺少 'points' 欄位或結構不符")
 
             # 2.10.2.3 將目前載入的檔案內容同步到 saved_points.json
-            default_json_path = os.path.expanduser("~/gui_ws/saved_points.json")        # 預設點位檔案路徑
+            default_json_path = os.path.join(self.gui_ws_path, "saved_points.json")        # 預設點位檔案路徑
             with open(default_json_path, 'w') as default_file:                          # 開啟預設檔案進行寫入
                 json.dump(data, default_file, indent=4)                                 # 將載入的數據寫入預設檔案
             print(f"已同步檔案內容到: {default_json_path}")
@@ -955,7 +958,7 @@ class MapWindow(QMainWindow):
             rounded_points.append(rounded_point)
 
         # 將格式化後的點位資料存入 saved_points.json
-        with open(os.path.expanduser('~/gui_ws/saved_points.json'), 'w') as file:
+        with open(os.path.join(self.gui_ws_path, 'saved_points.json'), 'w') as file:
             json.dump({'points': rounded_points}, file, indent=4)
 
         print("已將點位儲存到 saved_points.json")
@@ -998,7 +1001,7 @@ class MapWindow(QMainWindow):
     def load_saved_points(self):
         """載入預設點位檔案"""
         # default_file_path = os.path.expanduser("C:/Users/ADMIN/OneDrive/gui_python/saved_points.json")
-        default_file_path = os.path.expanduser("~/gui_ws/saved_points.json")
+        default_file_path = os.path.join(self.gui_ws_path, "saved_points.json")
         try:
             with open(default_file_path, 'r') as file:
                 data = json.load(file)
@@ -1275,7 +1278,7 @@ class MapLabel(QLabel):
     def sync_points_to_files(self):
         """同步點位到 saved_points.json"""
         # saved_points_path = os.path.expanduser("C:/Users/ADMIN/OneDrive/gui_python/saved_points.json")
-        saved_points_path = os.path.expanduser(f"~/gui_ws/saved_points.json")
+        saved_points_path = os.path.join(self.gui_ws_path, "saved_points.json")
         self.window().save_points_to_file(saved_points_path)
         print("已同步更新至 saved_points.json")
 
