@@ -950,7 +950,8 @@ class MapWindow(QMainWindow):
                 "2. 建圖完成後，請在終端中執行以下命令儲存地圖：\n" +
                 "   ros2 run nav2_map_server map_saver_cli -f <地圖名稱>\n" +
                 "3. 儲存完成後，請重啟程式以載入新地圖"
-            )
+            ) 
+            + 9
 
             # 恢復按鈕狀態
             self.init_system_button.setStyleSheet("background-color: purple; color: white; font-size: 16px;")
