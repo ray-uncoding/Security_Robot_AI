@@ -936,7 +936,7 @@ class MapWindow(QMainWindow):
             print("正在啟動建圖程序...")
             slam_command = [
                 "xterm", "-T", "slam", "-e",  # -T 設置視窗標題
-                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch slam_toolbox online_sync_launch.py; exec bash'"
+                "bash -c 'source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_slam_toolbox online_async_launch.py; exec bash'"
             ]
             self.toggle_process("slam", slam_command)
 
