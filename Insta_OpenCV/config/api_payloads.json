@@ -23,6 +23,13 @@
         "height": 1920,
         "framerate": 30,
         "bitrate": 10240
+      },
+      "audio": {
+        "mime":"aac", 
+        "sampleFormat":"s16",
+        "channelLayout":"stereo",
+        "samplerate":48000,
+        "bitrate":128
       }
     },
     "stabilization": true

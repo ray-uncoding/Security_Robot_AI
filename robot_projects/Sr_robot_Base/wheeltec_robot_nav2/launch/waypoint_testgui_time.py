@@ -1,13 +1,8 @@
-# ===============================================================
-# 檔案名稱：waypoint_testgui_time.py
-# 功能說明：使用 nav2_simple_commander 讀取預先儲存的點位，並依序導航至各點，且在每個點停留指定時間。
-# 使用方式：ros2 launch wheeltec_robot_nav2 waypoint_testgui_time.py
-# ===============================================================
 import time
 import json
-import rclpy
-from rclpy.duration import Duration
 from geometry_msgs.msg import PoseStamped
+from rclpy.duration import Duration
+import rclpy
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 
 # 讀取儲存的點位
@@ -30,7 +25,8 @@ def main():
     navigator.waitUntilNav2Active()
 
     # 讀取已儲存的點位
-    waypoints = load_waypoints_from_json('~/gui_ws/saved_points.json')
+    # waypoints = load_waypoints_from_json('/home/sr/gui_ws/saved_points.json')
+    waypoints = load_waypoints_from_json('saved_points.json') # 於當前目錄下尋找該檔案
 
     goal_poses = []
     stay_durations = []  # 用於儲存每個點的停留時間

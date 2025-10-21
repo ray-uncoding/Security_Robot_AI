@@ -1,0 +1,13 @@
+// generated from rosidl_adapter/resource/msg.idl.em
+// with input from wheeltec_rrt_msg/msg/PointArray.msg
+// generated code does not contain a copyright notice
+
+#include "geometry_msgs/msg/Point.idl"
+
+module wheeltec_rrt_msg {
+  module msg {
+    struct PointArray {
+      sequence<geometry_msgs::msg::Point> points;
+    };
+  };
+};

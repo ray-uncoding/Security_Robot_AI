@@ -60,11 +60,10 @@ class PerformanceMonitor:
         current_time = time.time()
         
         with self._lock:
-            # 計算幀間隔
-            frame_interval = current_time - self._last_frame_time
-            self._frame_times.append(frame_interval)
+            # 記錄幀時間戳（而不是間隔）
+            self._frame_times.append(current_time)
             
-            # 保持最近100個樣本
+            # 保持最近100個樣本（時間戳）
             if len(self._frame_times) > 100:
                 self._frame_times.pop(0)
             
@@ -91,26 +90,64 @@ class PerformanceMonitor:
         current_time = time.time()
         
         with self._lock:
-            # 計算 FPS
-            if len(self._frame_times) > 1:
-                avg_interval = sum(self._frame_times) / len(self._frame_times)
-                self.metrics.fps = 1.0 / avg_interval if avg_interval > 0 else 0.0
+            # 正確計算 FPS - 使用最近2秒內的幀數
+            if len(self._frame_times) >= 2:
+                # 找到2秒前的時間點
+                cutoff_time = current_time - 2.0
+                recent_frames = [t for t in self._frame_times if t >= cutoff_time]
+                
+                if len(recent_frames) >= 2:
+                    time_span = recent_frames[-1] - recent_frames[0]
+                    if time_span > 0:
+                        self.metrics.fps = (len(recent_frames) - 1) / time_span
+                    else:
+                        self.metrics.fps = 0.0
+                else:
+                    # 如果最近2秒內幀數太少，使用全部數據
+                    if len(self._frame_times) >= 2:
+                        time_span = self._frame_times[-1] - self._frame_times[0]
+                        if time_span > 0:
+                            self.metrics.fps = (len(self._frame_times) - 1) / time_span
+                        else:
+                            self.metrics.fps = 0.0
             
             # 計算平均處理時間
             if self._processing_times:
                 self.metrics.processing_time = sum(self._processing_times) / len(self._processing_times)
             
-            # 計算延遲（最近幀的時間間隔）
-            if self._frame_times:
-                self.metrics.latency = self._frame_times[-1] * 1000  # 轉換為毫秒
+            # ⚠️ 注意：當前無法測量真實的端到端延遲
+            # 只能計算幀間隔作為處理延遲的粗略指標
+            if len(self._frame_times) >= 2:
+                # 計算最近5幀的平均間隔（這不是真正的延遲！）
+                recent_count = min(5, len(self._frame_times))
+                recent_frames = self._frame_times[-recent_count:]
+                
+                if len(recent_frames) >= 2:
+                    intervals = []
+                    for i in range(1, len(recent_frames)):
+                        intervals.append(recent_frames[i] - recent_frames[i-1])
+                    
+                    if intervals:
+                        avg_interval = sum(intervals) / len(intervals)
+                        # 這只是處理間隔，不是真實延遲！
+                        self.metrics.latency = avg_interval * 1000  # 轉換為毫秒
+                    else:
+                        self.metrics.latency = 0.0
+                        
+            # TODO: 實現真正的端到端延遲測量
+            # 需要在RTMP串流中嵌入時間戳，或使用其他方法測量真實延遲
             
             self.metrics.last_update = current_time
         
         # 每次更新時記錄調試信息
-        if self.metrics.frame_count % 50 == 0:  # 每50幀記錄一次
-            logger.debug(f"[Performance] FPS: {self.metrics.fps:.1f}, "
-                        f"Processing: {self.metrics.processing_time*1000:.1f}ms, "
-                        f"Latency: {self.metrics.latency:.1f}ms")
+        if self.metrics.frame_count % 30 == 0:  # 每30幀記錄一次
+            frame_times_count = len(self._frame_times)
+            processing_times_count = len(self._processing_times)
+            # 警告：延遲數據不準確
+            logger.info(f"[Performance] FPS: {self.metrics.fps:.1f}, "
+                       f"Processing: {self.metrics.processing_time*1000:.1f}ms, "
+                       f"⚠️ Frame_Interval: {self.metrics.latency:.1f}ms (NOT真實延遲!), "
+                       f"Frames: {frame_times_count}, ProcessTimes: {processing_times_count}")
     
     def get_metrics(self) -> PerformanceMetrics:
         """獲取當前性能指標"""
@@ -130,7 +167,7 @@ class PerformanceMonitor:
         metrics = self.get_metrics()
         return (f"FPS: {metrics.fps:.1f} | "
                 f"處理時間: {metrics.processing_time*1000:.1f}ms | "
-                f"延遲: {metrics.latency:.1f}ms | "
+                f"幀間隔: {metrics.latency:.1f}ms (非真實延遲) | "
                 f"總幀數: {metrics.frame_count}")
     
     def reset_metrics(self):
