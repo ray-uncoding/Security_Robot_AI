@@ -36,7 +36,7 @@ def main():
     # waypoints = load_waypoints_from_json('saved_points.json') # 於當前目錄下尋找該檔案
     
     # 預設路徑為 wheeltec_robot_nav2/map 資料夾
-    waypoints = load_waypoints_from_json('robot_projects/Sr_robot_Base/wheeltec_robot_nav2/map/saved_points.json')
+    waypoints = load_waypoints_from_json('/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/map/saved_points.json')
 
     # 嘗試使用 gui_ws 的路徑
     # waypoints = load_waypoints_from_json('/home/nvidia/workspace/Security_Robot_AI/gui_ws/saved_points.json')
