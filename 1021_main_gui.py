@@ -401,10 +401,12 @@ class MapWindow(QMainWindow):
             #    ros2 launch wheeltec_robot_nav2 waypoint_testgui_time.py; exec bash'
 
             process_name = "waypoint"
+            
+            # 寫錯了 這個檔案是 python 檔案不是 launch 檔案，2025-10-27 修正
             command = [
                 "xterm", "-T", "waypoint", "-e",
                 "bash", "-c",
-                "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 launch wheeltec_nav2 waypoint_testgui_time.py; exec bash"
+                "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 run wheeltec_robot_nav2 waypoint_testgui_time.py; exec bash"
             ]
             self.toggle_process(process_name, command)
 
