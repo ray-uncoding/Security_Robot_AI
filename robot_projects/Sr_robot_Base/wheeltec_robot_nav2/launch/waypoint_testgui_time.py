@@ -59,34 +59,36 @@ def main():
         # 加入對停留時間的處理
         stay_durations.append(wp.get("stay_duration", 10))  # 默認停留時間為10秒
 
-    while rclpy.ok():
-        for i, goal_pose in enumerate(goal_poses):
-            navigator.goThroughPoses([goal_pose])
 
-            while not navigator.isTaskComplete():
-                feedback = navigator.getFeedback()
-                if feedback:
-                    print('Distance remaining: {:.2f} meters'.format(feedback.distance_remaining))
+    # 只走一圈，最後回到第一個點位就停止
+    for i, goal_pose in enumerate(goal_poses):
+        navigator.goThroughPoses([goal_pose])
 
-            result = navigator.getResult()
-            if result == TaskResult.SUCCEEDED:
-                print('Goal succeeded!')
+        while not navigator.isTaskComplete():
+            feedback = navigator.getFeedback()
+            if feedback:
+                print('Distance remaining: {:.2f} meters'.format(feedback.distance_remaining))
 
-                # 到達目標後，停留指定的時間
-                stay_duration = stay_durations[i]
-                print(f"在點 {i+1} 停留 {stay_duration} 秒")
-                time.sleep(stay_duration)
-            elif result == TaskResult.CANCELED:
-                print('Goal was canceled!')
-                break
-            elif result == TaskResult.FAILED:
-                print('Goal failed!')
-                break
-            else:
-                print('Goal has an invalid return status!')
+        result = navigator.getResult()
+        if result == TaskResult.SUCCEEDED:
+            print('Goal succeeded!')
 
-            time.sleep(0.5)
+            # 到達目標後，停留指定的時間
+            stay_duration = stay_durations[i]
+            print(f"在點 {i+1} 停留 {stay_duration} 秒")
+            time.sleep(stay_duration)
+        elif result == TaskResult.CANCELED:
+            print('Goal was canceled!')
+            break
+        elif result == TaskResult.FAILED:
+            print('Goal failed!')
+            break
+        else:
+            print('Goal has an invalid return status!')
 
+        time.sleep(0.5)
+
+    print('已完成所有點位導航，程式結束。')
     navigator.lifecycleShutdown()
     rclpy.shutdown()
 
