@@ -40,7 +40,7 @@ def generate_launch_description():
     my_param_dir = os.path.join(my_nav_dir, 'param')
     my_param_file = 'param_mini_mec.yaml'
     my_map_dir = os.path.join(my_nav_dir, 'map')
-    my_map_file = 'WHEELTEC.yaml'
+    my_map_file = 'dal.yaml'
     
     namespace = LaunchConfiguration('namespace')
     map_yaml_file = LaunchConfiguration('map')

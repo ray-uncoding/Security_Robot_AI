@@ -19,7 +19,7 @@ def generate_launch_description():
     my_nav_dir = get_package_share_directory('wheeltec_nav2')
     my_launch_dir = os.path.join(my_nav_dir, 'launch')
     my_map_dir = os.path.join(my_nav_dir, 'map')
-    my_map_file = 'WHEELTEC.yaml'
+    my_map_file = 'dal.yaml'
 
     #Modify the model parameter file, the options are：
     #param_mini_akm.yaml、param_mini_4wd.yaml、param_mini_diff.yaml、
