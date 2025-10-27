@@ -23,7 +23,10 @@ class MapWindow(QMainWindow):
         super().__init__()                      # 初始化父類別 QMainWindow，這是 QT 視窗的基礎類別
         
         # 1.0 路徑初始化
-        self.gui_ws_path = os.path.expanduser("/home/nvidia/workspace/Security_Robot_AI/gui_ws")
+        # 更改至 nv2 map
+        # self.gui_ws_path = os.path.expanduser("/home/nvidia/workspace/Security_Robot_AI/gui_ws")
+        self.gui_ws_path = os.path.expanduser("/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/map")
+        
         os.makedirs(self.gui_ws_path, exist_ok=True)
 
         
@@ -64,10 +67,11 @@ class MapWindow(QMainWindow):
         
         # 絕對路徑
         # self.map_directory = "/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/map"
-        # 嘗試修改為 gui_ws 下的路徑
-        self.map_directory = os.path.join(self.gui_ws_path, "map")        
+        # 由於現在 gui_ws 被指定為 wheeltec_robot_nav2/map，接下來都以此為基準        
+        # self.map_directory = os.path.join(self.gui_ws_path, "map")        
+        # self.map_directory = self.gui_ws_path
         
-        self.yaml_files, self.pgm_files = self.scan_map_files(self.map_directory)   # 掃描該目錄下的 YAML 和 PGM 檔案，返回兩個列表
+        self.yaml_files, self.pgm_files = self.scan_map_files(self.gui_ws_path)   # 掃描該目錄下的 YAML 和 PGM 檔案，返回兩個列表
         
         # 1.5 視窗初始化
         self.start_wheeltec_nav2_process()      # 啟動 wheeltec_nav2 指令
