@@ -1,4 +1,4 @@
-image: 1021_3_dal.pgm
+image: dal.pgm
 mode: trinary
 resolution: 0.05
 origin: [-1.34, -8.48, 0]
