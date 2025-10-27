@@ -22,9 +22,9 @@ class MapWindow(QMainWindow):
         
         super().__init__()                      # 初始化父類別 QMainWindow，這是 QT 視窗的基礎類別
         
-        # 1.0 路徑初始化
-        self.gui_ws_path = os.path.expanduser("/home/nvidia/workspace/Security_Robot_AI/gui_ws")
-        os.makedirs(self.gui_ws_path, exist_ok=True)
+        # 1.0 路徑初始化 - 使用 robot_projects/Sr_robot_Base 作為基礎路徑
+        self.base_path = "/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base"
+        os.makedirs(self.base_path, exist_ok=True)
 
         
         # 1.1 地圖視窗初始化
@@ -62,10 +62,9 @@ class MapWindow(QMainWindow):
         # 此路徑在專案下的 robot_projects/Sr_robot_Base/wheeltec_robot_nav2/map
         # 而本檔案在根目錄下 1021_main_gui.py
         
-        # 絕對路徑
-        # self.map_directory = "/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/map"
-        # 嘗試修改為 gui_ws 下的路徑
-        self.map_directory = os.path.join(self.gui_ws_path, "map")        
+        # 使用 nav2 的地圖路徑
+        self.map_directory = "/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/map"
+        os.makedirs(self.map_directory, exist_ok=True)  # 確保目錄存在
         
         self.yaml_files, self.pgm_files = self.scan_map_files(self.map_directory)   # 掃描該目錄下的 YAML 和 PGM 檔案，返回兩個列表
         
@@ -1210,16 +1209,29 @@ class MapWindow(QMainWindow):
         self.recorded_points = []
         self.directions = []
         self.save_points()
-        # 執行 ROS2 的 service call 來加載新地圖
+        # 執行 ROS2 的相關指令來加載新地圖
         try:
-            command = [
-                "ros2", "service", "call", "/map_server/load_map", "nav2_msgs/srv/LoadMap",
-                f"{{map_url: '{selected_yaml_file}'}}"
-            ]
-            subprocess.run(command, check=True)
-            print(f"成功加載地圖: {selected_yaml_file}")
+            # 1. 首先停止 nav2
+            print("正在重新啟動導航系統...")
+            subprocess.run(["ros2", "lifecycle", "set", "/bt_navigator", "shutdown"], check=True)
+            time.sleep(2)
+            
+            # 2. 啟動 map_server 並加載地圖
+            print(f"正在加載地圖: {selected_yaml_file}")
+            subprocess.run(["ros2", "service", "call", "/map_server/load_map", "nav2_msgs/srv/LoadMap",
+                          f"{{map_url: '{selected_yaml_file}'}}"], check=True)
+            time.sleep(2)
+            
+            # 3. 重新啟動導航系統
+            subprocess.run(["ros2", "lifecycle", "set", "/bt_navigator", "configure"], check=True)
+            time.sleep(1)
+            subprocess.run(["ros2", "lifecycle", "set", "/bt_navigator", "activate"], check=True)
+            
+            print("成功加載地圖並重新啟動導航系統")
+            
         except subprocess.CalledProcessError as e:
             print(f"加載地圖失敗: {e}")
+            QMessageBox.warning(self, "警告", "加載地圖時發生錯誤，請檢查 ROS2 系統狀態")
 
     def check_terminal_status(self):
         """檢查終端機進程狀態，若已結束則重置按鈕"""
