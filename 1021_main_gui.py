@@ -406,7 +406,7 @@ class MapWindow(QMainWindow):
             command = [
                 "xterm", "-T", "waypoint", "-e",
                 "bash", "-c",
-                "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && ros2 run wheeltec_robot_nav2 waypoint_testgui_time.py; exec bash"
+                "source /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/install/setup.bash && python3 /home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/launch/waypoint_testgui_time.py; exec bash"
             ]
             self.toggle_process(process_name, command)
 
