@@ -1,3 +1,10 @@
+# 檔案名稱: waypoint_testgui_time.py
+# 功能: 使用 nav2_simple_commander 控制 Wheeltec 機器人
+# 1. 從 JSON 檔案讀取預先儲存的點位
+# 2. 機器人依序前往每個點位
+# 3. 在每個點位停留指定的時間（可在 JSON 檔案中設定）
+# 4. 支援無限循環前往點位
+
 import time
 import json
 from geometry_msgs.msg import PoseStamped
@@ -26,7 +33,13 @@ def main():
 
     # 讀取已儲存的點位
     # waypoints = load_waypoints_from_json('/home/sr/gui_ws/saved_points.json')
-    waypoints = load_waypoints_from_json('saved_points.json') # 於當前目錄下尋找該檔案
+    # waypoints = load_waypoints_from_json('saved_points.json') # 於當前目錄下尋找該檔案
+    
+    # 預設路徑為 wheeltec_robot_nav2/launch 資料夾
+    waypoints = load_waypoints_from_json('robot_projects/Sr_robot_Base/wheeltec_robot_nav2/launch/saved_points.json')
+
+    # 嘗試使用 gui_ws 的路徑
+    # waypoints = load_waypoints_from_json('/home/nvidia/workspace/Security_Robot_AI/gui_ws/saved_points.json')
 
     goal_poses = []
     stay_durations = []  # 用於儲存每個點的停留時間

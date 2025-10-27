@@ -63,7 +63,10 @@ class MapWindow(QMainWindow):
         # 而本檔案在根目錄下 1021_main_gui.py
         
         # 絕對路徑
-        self.map_directory = "/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/map"
+        # self.map_directory = "/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/map"
+        # 嘗試修改為 gui_ws 下的路徑
+        self.map_directory = os.path.join(self.gui_ws_path, "map")        
+        
         self.yaml_files, self.pgm_files = self.scan_map_files(self.map_directory)   # 掃描該目錄下的 YAML 和 PGM 檔案，返回兩個列表
         
         # 1.5 視窗初始化
@@ -578,7 +581,8 @@ class MapWindow(QMainWindow):
 
             # 2.8.3.2 NO，另存為新檔案
             elif response == QMessageBox.No:
-                file_name, ok = QInputDialog.getText(self, "另存為", "請輸入新檔案名稱（不含副檔名）:")
+                file_name, ok = QInputDialog.getText(self, "另存為", f"{current_map_name}_檔案名稱.json:")
+                
                 if ok and file_name:
                     # 2.8.3.2.1 儲存至新檔案 
                     save_path = os.path.join(self.gui_ws_path, f"{current_map_name}_{file_name}.json")
@@ -594,7 +598,8 @@ class MapWindow(QMainWindow):
                 print("取消儲存操作")
         else:
             # 2.8.4 未載入檔案，直接要求輸入新檔案名稱
-            file_name, ok = QInputDialog.getText(self, "儲存檔案", "請輸入檔案名稱（不含副檔名）:")
+            file_name, ok = QInputDialog.getText(self, "另存為", f"{current_map_name}_檔案名稱.json:")            
+            
             if ok and file_name:
                 # 2.8.4.1 儲存至新檔案
                 save_path = os.path.join(self.gui_ws_path, f"{current_map_name}_{file_name}.json")
