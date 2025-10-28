@@ -11,6 +11,9 @@ from geometry_msgs.msg import PoseStamped
 from rclpy.duration import Duration
 import rclpy
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
+# 新增 tkinter 用於彈窗
+import tkinter as tk
+from tkinter import messagebox
 
 # 讀取儲存的點位
 def load_waypoints_from_json(file_path):
@@ -61,6 +64,7 @@ def main():
 
 
     # 只走一圈，最後回到第一個點位就停止
+
     for i, goal_pose in enumerate(goal_poses):
         navigator.goThroughPoses([goal_pose])
 
@@ -73,10 +77,14 @@ def main():
         if result == TaskResult.SUCCEEDED:
             print('Goal succeeded!')
 
-            # 到達目標後，停留指定的時間
-            stay_duration = stay_durations[i]
-            print(f"在點 {i+1} 停留 {stay_duration} 秒")
-            time.sleep(stay_duration)
+            # 彈出視窗詢問是否繼續
+            root = tk.Tk()
+            root.withdraw()  # 不顯示主視窗
+            answer = messagebox.askyesno("導航選擇", f"已到達點 {i+1}，是否繼續導航下一點？")
+            root.destroy()
+            if not answer:
+                print("使用者選擇結束導航。");
+                break
         elif result == TaskResult.CANCELED:
             print('Goal was canceled!')
             break
