@@ -13,6 +13,9 @@ import time, math, threading
 # 1.2 全域變數，決定是否真的控制機器人
 CONTROL_ROBOT = True   # True: 發送 /cmd_vel 控制車子；False: 只印出指令
 
+# 1.3 全域變數，Gemini API 設定
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "YOUR_API_KEY")  # 請設定你的 API Key
+
 if CONTROL_ROBOT:
     import rclpy
     from rclpy.node import Node
@@ -182,7 +185,7 @@ if CONTROL_ROBOT:
 # ====================================================
 
 # 3.1 初始化 Gemini 模型
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY", "YOUR_API_KEY"))
+genai.configure(api_key=GEMINI_API_KEY)
 
 # 3.2 Schema 驅動 JSON 輸出格式 - 基本移動
 response_schema_basic = {
