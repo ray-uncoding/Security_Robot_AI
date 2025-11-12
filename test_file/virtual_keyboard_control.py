@@ -16,7 +16,8 @@ CONTROL_ROBOT = True   # True: 發送 /cmd_vel 控制車子；False: 只印出�
 if CONTROL_ROBOT:
     import rclpy
     from rclpy.node import Node
-    from geometry_msgs.msg import Twist
+    from geometry_msgs.msg import Twist, PoseStamped
+    from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 
 # ====================================================
 # ========== Step 2 機器人控制 =============
@@ -29,6 +30,12 @@ if CONTROL_ROBOT:
         def __init__(self):
             super().__init__('voice_command_controller')
             self.publisher_ = self.create_publisher(Twist, '/cmd_vel', 10)
+            
+            # 初始化 Nav2 導航
+            self.navigator = BasicNavigator()
+            
+            # 載入航點配置
+            self.waypoints = self.load_waypoints()
 
             # 你原本的基準速度（可依需求調）
             self.linear_speed  = 0.20   # m/s
@@ -117,6 +124,59 @@ if CONTROL_ROBOT:
             self.get_logger().info(f"▶️ 連續發送: action={action}, lin_x={lin_x:.3f}, ang_z={ang_z:.3f}, "
                                 f"hz={hz}, duration={duration:.2f}s")
 
+        # 2.6 載入航點配置
+        def load_waypoints(self):
+            """載入航點配置檔案"""
+            try:
+                with open('/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/map/saved_points.json', 'r') as file:
+                    data = json.load(file)
+                waypoints = data["points"]
+                self.get_logger().info(f"✅ 成功載入 {len(waypoints)} 個航點")
+                return waypoints
+            except Exception as e:
+                self.get_logger().error(f"❌ 載入航點失敗: {e}")
+                return []
+
+        # 2.7 導航到指定點位
+        def navigate_to_waypoint(self, point_number):
+            """導航到指定編號的點位"""
+            try:
+                if not self.waypoints:
+                    self.get_logger().error("❌ 沒有可用的航點")
+                    return False
+                    
+                if point_number < 1 or point_number > len(self.waypoints):
+                    self.get_logger().error(f"❌ 點位編號 {point_number} 超出範圍 (1-{len(self.waypoints)})")
+                    return False
+                
+                # 等待 Nav2 啟動
+                self.navigator.waitUntilNav2Active()
+                
+                # 選擇目標點位 (從 1 開始計數，所以要 -1)
+                wp = self.waypoints[point_number - 1]
+                
+                goal_pose = PoseStamped()
+                goal_pose.header.frame_id = 'map'
+                goal_pose.header.stamp = self.navigator.get_clock().now().to_msg()
+                goal_pose.pose.position.x = wp["x"]
+                goal_pose.pose.position.y = wp["y"]
+                goal_pose.pose.position.z = wp["z"]
+                goal_pose.pose.orientation.x = wp["qx"]
+                goal_pose.pose.orientation.y = wp["qy"]
+                goal_pose.pose.orientation.z = wp["qz"]
+                goal_pose.pose.orientation.w = wp["qw"]
+                
+                self.get_logger().info(f"🎯 開始導航到點位 {point_number}: ({wp['x']:.2f}, {wp['y']:.2f})")
+                
+                # 開始導航
+                self.navigator.goToPose(goal_pose)
+                
+                return True
+                
+            except Exception as e:
+                self.get_logger().error(f"❌ 導航失敗: {e}")
+                return False
+
 # ====================================================
 # ========== Step 3 Gemini API 初始化 =============
 # ====================================================
@@ -124,8 +184,8 @@ if CONTROL_ROBOT:
 # 3.1 初始化 Gemini 模型
 genai.configure(api_key=os.environ.get("GEMINI_API_KEY", "YOUR_API_KEY"))
 
-# 3.2 Schema 驅動 JSON 輸出格式
-response_schema = {
+# 3.2 Schema 驅動 JSON 輸出格式 - 基本移動
+response_schema_basic = {
     "type": "object",
     "properties": {
         "action": {
@@ -137,12 +197,34 @@ response_schema = {
     "required": ["action"]
 }
 
-# 3.3 建立 Gemini 模型物件
-model = genai.GenerativeModel(
+# 3.3 Schema 驅動 JSON 輸出格式 - 導航
+response_schema_navigation = {
+    "type": "object",
+    "properties": {
+        "action": {
+            "type": "string",
+            "enum": ["go_to_location"]
+        },
+        "value": {"type": "number"}
+    },
+    "required": ["action"]
+}
+
+# 3.4 建立 Gemini 模型物件 - 基本移動
+model_basic = genai.GenerativeModel(
     "gemini-2.5-pro",
     generation_config={
         "response_mime_type": "application/json",
-        "response_schema": response_schema
+        "response_schema": response_schema_basic
+    }
+)
+
+# 3.5 建立 Gemini 模型物件 - 導航
+model_navigation = genai.GenerativeModel(
+    "gemini-2.5-pro",
+    generation_config={
+        "response_mime_type": "application/json",
+        "response_schema": response_schema_navigation
     }
 )
 
@@ -191,33 +273,72 @@ def test_speech_recognition(mic_index):
     print("✅ 辨識結果:", text)
     return text
 
-# 4.4 測試 Gemini JSON 輸出
+# 4.4 測試 Gemini JSON 輸出 - 基本移動
 def test_gemini_json():
     """手動輸入文字，測試 Gemini JSON 輸出"""
-    command = input("🎯 Step 3: 請輸入指令 (例如：前進 5 公尺): ")
-    response = model.generate_content(command)
+    command = input("🎯 Step 3: 請輸入基本移動指令 (例如：前進 5 公尺): ")
+    response = model_basic.generate_content(f"將以下中文指令轉換為機器人基本移動指令。支援的動作：move_forward(前進), move_backward(後退), turn_left(左轉), turn_right(右轉), stop(停止)。指令：{command}")
     cmd = json.loads(response.text)
     print("✅ Gemini 輸出 JSON:", cmd)
     return cmd
 
-# 4.5 完整流程測試
+# 4.5 完整流程測試 - 基本移動
 def run_integration(mic_index, ros_controller=None):
     r = sr.Recognizer()
     with sr.Microphone(device_index=mic_index) as source:
         r.adjust_for_ambient_noise(source)
-        print("🎙️ Step 4: 請講出指令...")
+        print("🎙️ Step 4: 請講出基本移動指令...")
         audio = r.listen(source)
 
     text = r.recognize_google(audio, language="zh-TW")
     print("📝 辨識文字:", text)
 
     try:
-        response = model.generate_content(text)
+        response = model_basic.generate_content(f"將以下中文指令轉換為機器人基本移動指令。支援的動作：move_forward(前進), move_backward(後退), turn_left(左轉), turn_right(右轉), stop(停止)。指令：{text}")
         cmd = json.loads(response.text)
         print("📦 Gemini 強制 JSON 輸出:", cmd)
         execute_command_with_ros(cmd, ros_controller)   # <── 傳進去
     except Exception as e:
         print("⚠️ 解析失敗:", e)
+
+# 4.6 語音導航循環
+def run_voice_navigation(mic_index, ros_controller=None):
+    """持續語音導航模式"""
+    print("🎯 進入語音導航模式，說「停止」結束程式")
+    r = sr.Recognizer()
+    
+    while True:
+        try:
+            with sr.Microphone(device_index=mic_index) as source:
+                r.adjust_for_ambient_noise(source)
+                print("🎙️ 請說出導航指令 (例如：去1號點位)...")
+                audio = r.listen(source, timeout=10)
+
+            text = r.recognize_google(audio, language="zh-TW")
+            print("📝 辨識文字:", text)
+            
+            # 檢查是否要退出
+            if "停止" in text or "結束" in text or "退出" in text:
+                print("👋 結束語音導航")
+                break
+
+            try:
+                response = model_navigation.generate_content(f"將以下中文指令轉換為機器人導航指令。支援的動作：go_to_location(導航到指定點位)。如果用戶說「去1號點位」或「前往點位2」等，使用go_to_location動作，value設為點位編號。指令：{text}")
+                cmd = json.loads(response.text)
+                print("📦 Gemini 輸出 JSON:", cmd)
+                execute_command_with_ros(cmd, ros_controller)
+            except Exception as e:
+                print("⚠️ 解析失敗:", e)
+                
+        except sr.WaitTimeoutError:
+            print("⏰ 等待超時，繼續監聽...")
+        except sr.UnknownValueError:
+            print("🤷 無法辨識語音內容")
+        except sr.RequestError as e:
+            print("🌐 語音服務錯誤：", e)
+        except KeyboardInterrupt:
+            print("👋 使用者中斷，結束程式")
+            break
 
 def get_default_mic_index():
     p = pyaudio.PyAudio()
@@ -237,7 +358,10 @@ def execute_command_with_ros(cmd, ros_controller=None):
     value = cmd.get("value", 0)
 
     if CONTROL_ROBOT and ros_controller is not None:
-        ros_controller.send_command(action, value)
+        if action == "go_to_location":
+            ros_controller.navigate_to_waypoint(int(value))
+        else:
+            ros_controller.send_command(action, value)
     else:
         if action == "move_forward":
             print(f"🚗 車子前進 {value} 公尺")
@@ -249,6 +373,8 @@ def execute_command_with_ros(cmd, ros_controller=None):
             print(f"🚗 車子右轉 {value} 度")
         elif action == "stop":
             print("🚗 車子停止")
+        elif action == "go_to_location":
+            print(f"🎯 導航到點位 {int(value)}")
         else:
             print("❌ 未知指令:", action)
 
@@ -269,9 +395,10 @@ if __name__ == "__main__":
     print("=== 測試選單 ===")
     print("1. 測試麥克風")
     print("2. 測試語音辨識")
-    print("3. 測試 Gemini JSON 輸出")
-    print("4. 執行整合版")
-    choice = input("請輸入選項 (1-4): ")
+    print("3. 測試 Gemini JSON 輸出 (基本移動)")
+    print("4. 執行基本移動指令")
+    print("5. 語音導航模式")
+    choice = input("請輸入選項 (1-5): ")
 
     if choice == "1":
         test_microphone(mic_index)
@@ -281,6 +408,8 @@ if __name__ == "__main__":
         test_gemini_json()
     elif choice == "4":
         run_integration(mic_index, ros_controller)
+    elif choice == "5":
+        run_voice_navigation(mic_index, ros_controller)
     else:
         print("❌ 無效選項")
         

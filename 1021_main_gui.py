@@ -122,7 +122,7 @@ class MapWindow(QMainWindow):
         # -  SAVEFILE  -  DELETEFILE  -            -
         # -  LOADFILE  -  CANCELFILE  -            -
         # -   INSTA    -     AX8      -            -
-        # -   INIT     -              -            -
+        # -   INIT     -    ACTION    -            -
         # -     [ 停留時間資訊欄 ]     -            -
         # ------------------------------------------
 
@@ -142,6 +142,7 @@ class MapWindow(QMainWindow):
         self.insta_mode_button      = QPushButton("INSTA\n全景相機控制")
         self.ax8_mode_button        = QPushButton("AX8\n熱顯像儀控制")
         self.init_system_button     = QPushButton("INIT\n系統初始化")
+        self.voice_action_button    = QPushButton("ACTION\n語音測試")
 
         # 1.7.2.1 綁定按鈕事件
         self.start_button.clicked.connect(self.start_process)
@@ -159,6 +160,7 @@ class MapWindow(QMainWindow):
         self.insta_mode_button.clicked.connect(self.toggle_insta_mode)
         self.ax8_mode_button.clicked.connect(self.toggle_ax8_mode)
         self.init_system_button.clicked.connect(self.initialize_system)
+        self.voice_action_button.clicked.connect(self.voice_action)
 
         # 1.7.2.2 設定按鈕大小和顏色
         self.start_button.setFixedSize(110, 60)
@@ -190,7 +192,9 @@ class MapWindow(QMainWindow):
         self.ax8_mode_button.setFixedSize(110, 60)
         self.ax8_mode_button.setStyleSheet("background-color: red; color: white; font-size: 16px;")
         self.init_system_button.setFixedSize(110, 60)
-        self.init_system_button.setStyleSheet("background-color: purple; color: white; font-size: 16px;")
+        self.init_system_button.setStyleSheet("background-color: purple; color: white; font-size: 16px;")        
+        self.voice_action_button.setFixedSize(110, 60)
+        self.voice_action_button.setStyleSheet("background-color: brown; color: white; font-size: 16px;")
         
         # 1.7.2.3 新增水平佈局，用於放置啟動和鍵盤控制按鈕，放置先後順序為 start_button 在前
         file_buttons_layout0 = QHBoxLayout()
@@ -227,8 +231,10 @@ class MapWindow(QMainWindow):
         file_buttons_layout6.addWidget(self.insta_mode_button)
         file_buttons_layout6.addWidget(self.ax8_mode_button)
         
+        # 新增系統初始化按鈕的水平佈局
         file_buttons_layout7 = QHBoxLayout()
         file_buttons_layout7.addWidget(self.init_system_button)
+        file_buttons_layout7.addWidget(self.voice_action_button)    
 
         # 1.7.2.10 建立按鈕佈局
         button_layout = QVBoxLayout()                   # 垂直佈局，用於放置所有按鈕
@@ -241,7 +247,7 @@ class MapWindow(QMainWindow):
         button_layout.addLayout(file_buttons_layout4)   # 添加 [儲存] 和 [刪除] 按鈕佈局
         button_layout.addLayout(file_buttons_layout5)   # 添加 [載入] 和 [取消] 按鈕佈局
         button_layout.addLayout(file_buttons_layout6)   # 添加 [INSTA] 和 [AX8] 按鈕佈局
-        button_layout.addLayout(file_buttons_layout7)   # 添加 [系統初始化] 按鈕佈局
+        button_layout.addLayout(file_buttons_layout7)   # 添加 [系統初始化] 和 [語音測試] 按鈕佈局
 
         # ---------------------------- 1.7.3 資訊顯示區域  ---------------------------
         # ---------------------------------------------------------------------------
@@ -977,6 +983,27 @@ class MapWindow(QMainWindow):
             QMessageBox.critical(self, "錯誤", f"初始化過程發生錯誤：\n{str(e)}")
             self.init_system_button.setStyleSheet("background-color: purple; color: white; font-size: 16px;")
             self.init_system_button.setText("INIT\n系統初始化")
+
+    def voice_action(self):
+        try:
+            print("啟動語音識別進程...")
+
+            process_name = "voice_recognition"
+            command = [
+                "xterm", "-T", "Voice Recognition", "-e",  # -T 設置視窗標題
+                "bash", "-c", 
+                "python3 /home/nvidia/workspace/Security_Robot_AI/test_file/virtual_keyboard_control.py; exec bash"
+            ]
+            self.toggle_process(process_name, command)
+
+            print(f"啟動的終端機進程 PID: {self.processes[process_name].pid}")
+
+            self.voice_action_button.setText("VOICE ACTION\n關閉")
+            self.voice_action_button.setStyleSheet("background-color: green; color: white; font-size: 16px;")
+            print(f"語音識別已啟動 (PID: {self.processes[process_name].pid})")
+        except Exception as e:
+            print(f"啟動語音識別失敗: {e}")
+
 
 
     # 通用函式: 啟動或停止子進程
