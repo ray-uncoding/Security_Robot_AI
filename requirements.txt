@@ -1,19 +1,14 @@
-memory_profiler
-numpy
-scikit-learn
-ultralytics
-requests
-websocket-client
-torchreid
-aiohttp
+# Google Generative AI SDK
 google-generativeai
 google-genai
-pyaudio
-pillow
-mss
-nest_asyncio
-psutil
-# OBS 串流捕獲相關依賴
-opencv-python>=4.5.0
-opencv-contrib-python>=4.5.0  # 包含額外功能
-ffmpeg-python  # FFmpeg Python 綁定
+
+# pyQt5 for GUI development
+PyQt5
+
+# thread and asyncio utilities
+threadpoolctl
+async-timeout
+
+# OBS audio capture
+obs-websocket-py
+sounddevice

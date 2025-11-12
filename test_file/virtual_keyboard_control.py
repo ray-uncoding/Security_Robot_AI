@@ -3,6 +3,7 @@
 # ====================================================
 
 # 1.1 標準庫與第三方套件匯入
+import pyaudio
 import speech_recognition as sr
 import google.generativeai as genai
 import json
@@ -10,7 +11,7 @@ import os
 import time, math, threading
 
 # 1.2 全域變數，決定是否真的控制機器人
-CONTROL_ROBOT = False   # True: 發送 /cmd_vel 控制車子；False: 只印出指令
+CONTROL_ROBOT = True   # True: 發送 /cmd_vel 控制車子；False: 只印出指令
 
 if CONTROL_ROBOT:
     import rclpy
@@ -138,7 +139,7 @@ response_schema = {
 
 # 3.3 建立 Gemini 模型物件
 model = genai.GenerativeModel(
-    "gemini-1.5-pro",
+    "gemini-2.5-pro",
     generation_config={
         "response_mime_type": "application/json",
         "response_schema": response_schema
@@ -161,13 +162,22 @@ def choose_microphone():
 
 # 4.2 測試函式
 def test_microphone(mic_index):
-    """測試 PyAudio 能否正常錄音"""
     r = sr.Recognizer()
-    with sr.Microphone(device_index=mic_index) as source:
-        r.adjust_for_ambient_noise(source)
+    with sr.Microphone(device_index=13, sample_rate=16000) as source:  # 12 是 pulse
+
         print("🎙️ Step 1: 請講話...")
-        audio = r.listen(source)
-    print("✅ 麥克風 OK，錄到音訊長度:", len(audio.frame_data))
+        r.adjust_for_ambient_noise(source)
+        try:
+            audio = r.listen(source, timeout=5)
+            print("🎧 Step 2: 錄音完成，辨識中...")
+            text = r.recognize_google(audio, language="zh-TW")
+            print("🧠 辨識結果：", text)
+        except sr.WaitTimeoutError:
+            print("❌ 等待超時，沒偵測到語音。")
+        except sr.UnknownValueError:
+            print("🤷 無法辨識語音內容")
+        except sr.RequestError as e:
+            print("🌐 語音服務錯誤：", e)
 
 # 4.3 測試語音辨識
 def test_speech_recognition(mic_index):
@@ -209,7 +219,14 @@ def run_integration(mic_index, ros_controller=None):
     except Exception as e:
         print("⚠️ 解析失敗:", e)
 
-
+def get_default_mic_index():
+    p = pyaudio.PyAudio()
+    for i in range(p.get_device_count()):
+        info = p.get_device_info_by_index(i)
+        if info["maxInputChannels"] > 0:
+            print(f"使用麥克風裝置：Index {i} - {info['name']}")
+            return i
+    raise RuntimeError("找不到任何可用的麥克風裝置")
 # ====================================================
 # ========== Step 4 發送 ROS 指令 =============
 # ====================================================
@@ -241,8 +258,8 @@ def execute_command_with_ros(cmd, ros_controller=None):
 # ====================================================
 if __name__ == "__main__":
     #mic_index = choose_microphone()   # 互動選擇麥克風
-    mic_index = 4   # ← 直接指定 index
-
+    #mic_index = get_default_mic_index()   # ← 使用預設麥克風
+    mic_index = 13   # ← 指定麥克風 index（nvidia 的 pulse audio）
     if CONTROL_ROBOT:
         rclpy.init()
         ros_controller = RobotController()

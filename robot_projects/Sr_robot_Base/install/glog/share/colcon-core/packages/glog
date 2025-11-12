@@ -1,1 +1,1 @@
-GTest:JPEG:JpegPkg:LibUSB:OpenCV:OpenCVPkg:PkgConfig:Threads:Unwind:gflags:libjpeg:libusb-1.0
+GTest:Threads:Unwind:gflags

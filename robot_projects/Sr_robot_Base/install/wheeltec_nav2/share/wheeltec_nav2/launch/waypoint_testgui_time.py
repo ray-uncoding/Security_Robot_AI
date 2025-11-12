@@ -11,6 +11,9 @@ from geometry_msgs.msg import PoseStamped
 from rclpy.duration import Duration
 import rclpy
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
+# 新增 tkinter 用於彈窗
+import tkinter as tk
+from tkinter import messagebox
 
 # 讀取儲存的點位
 def load_waypoints_from_json(file_path):
@@ -35,11 +38,11 @@ def main():
     # waypoints = load_waypoints_from_json('/home/sr/gui_ws/saved_points.json')
     # waypoints = load_waypoints_from_json('saved_points.json') # 於當前目錄下尋找該檔案
     
-    # 預設路徑為 wheeltec_robot_nav2/launch 資料夾
-    # waypoints = load_waypoints_from_json('robot_projects/Sr_robot_Base/wheeltec_robot_nav2/launch/saved_points.json')
+    # 預設路徑為 wheeltec_robot_nav2/map 資料夾
+    waypoints = load_waypoints_from_json('/home/nvidia/workspace/Security_Robot_AI/robot_projects/Sr_robot_Base/wheeltec_robot_nav2/map/saved_points.json')
 
     # 嘗試使用 gui_ws 的路徑
-    waypoints = load_waypoints_from_json('/home/nvidia/workspace/Security_Robot_AI/gui_ws/saved_points.json')
+    # waypoints = load_waypoints_from_json('/home/nvidia/workspace/Security_Robot_AI/gui_ws/saved_points.json')
 
     goal_poses = []
     stay_durations = []  # 用於儲存每個點的停留時間
@@ -59,34 +62,41 @@ def main():
         # 加入對停留時間的處理
         stay_durations.append(wp.get("stay_duration", 10))  # 默認停留時間為10秒
 
-    while rclpy.ok():
-        for i, goal_pose in enumerate(goal_poses):
-            navigator.goThroughPoses([goal_pose])
 
-            while not navigator.isTaskComplete():
-                feedback = navigator.getFeedback()
-                if feedback:
-                    print('Distance remaining: {:.2f} meters'.format(feedback.distance_remaining))
+    # 只走一圈，最後回到第一個點位就停止
 
-            result = navigator.getResult()
-            if result == TaskResult.SUCCEEDED:
-                print('Goal succeeded!')
+    for i, goal_pose in enumerate(goal_poses):
+        navigator.goThroughPoses([goal_pose])
 
-                # 到達目標後，停留指定的時間
-                stay_duration = stay_durations[i]
-                print(f"在點 {i+1} 停留 {stay_duration} 秒")
-                time.sleep(stay_duration)
-            elif result == TaskResult.CANCELED:
-                print('Goal was canceled!')
+        while not navigator.isTaskComplete():
+            feedback = navigator.getFeedback()
+            if feedback:
+                print('Distance remaining: {:.2f} meters'.format(feedback.distance_remaining))
+
+        result = navigator.getResult()
+        if result == TaskResult.SUCCEEDED:
+            print('Goal succeeded!')
+
+            # 彈出視窗詢問是否繼續
+            root = tk.Tk()
+            root.withdraw()  # 不顯示主視窗
+            answer = messagebox.askyesno("導航選擇", f"已到達點 {i+1}，是否繼續導航下一點？")
+            root.destroy()
+            if not answer:
+                print("使用者選擇結束導航。");
                 break
-            elif result == TaskResult.FAILED:
-                print('Goal failed!')
-                break
-            else:
-                print('Goal has an invalid return status!')
+        elif result == TaskResult.CANCELED:
+            print('Goal was canceled!')
+            break
+        elif result == TaskResult.FAILED:
+            print('Goal failed!')
+            break
+        else:
+            print('Goal has an invalid return status!')
 
-            time.sleep(0.5)
+        time.sleep(0.5)
 
+    print('已完成所有點位導航，程式結束。')
     navigator.lifecycleShutdown()
     rclpy.shutdown()
 
