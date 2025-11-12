@@ -385,7 +385,7 @@ def execute_command_with_ros(cmd, ros_controller=None):
 if __name__ == "__main__":
     #mic_index = choose_microphone()   # 互動選擇麥克風
     #mic_index = get_default_mic_index()   # ← 使用預設麥克風
-    mic_index = 13   # ← 指定麥克風 index（nvidia 的 pulse audio）
+    mic_index = 12   # ← 指定麥克風 index（nvidia 的 pulse audio）
     if CONTROL_ROBOT:
         rclpy.init()
         ros_controller = RobotController()
